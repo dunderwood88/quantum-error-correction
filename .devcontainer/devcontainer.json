@@ -1,0 +1,81 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/python-3
+{
+	"name": "Python 3",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "..",
+		"args": { 
+			// Update 'VARIANT' to pick a Python version: 3, 3.10, 3.9, 3.8, 3.7, 3.6
+			// Append -bullseye or -buster to pin to an OS version.
+			// Use -bullseye variants on local on arm64/Apple Silicon.
+			"VARIANT": "3.9",
+			// Options
+			"NODE_VERSION": "none"
+		}
+	},
+
+	"settings": {
+		"autoDocstring.docstringFormat": "numpy",
+	
+		"bracket-pair-colorizer-2.colors": [
+		  "Gold",
+		  "Orchid",
+		  "LightSkyBlue"
+		],
+		
+		"editor.autoClosingBrackets": "always",
+		"editor.rulers": [ 80 ],
+			"editor.tabSize": 4,
+		"editor.codeActionsOnSave": {
+		  "source.fixAll.eslint": true
+		},
+		
+		"files.autoSave": "afterDelay",
+		"files.autoSaveDelay": 1000,
+		"files.exclude": {
+		  "**/.git": true,
+				"**/*.pyc": true,
+		  "**/.svn": true,
+		  "**/.hg": true,
+		  "**/CVS": true,
+		  "**/.DS_Store": true,
+		  "**/__pycache__": true,
+		  ".idea": true,
+				"venv":true,
+				".vscode":true
+			},
+		
+		"gitlens.codeLens.enabled": true,
+	
+		"python.formatting.provider": "autopep8",
+		"python.linting.enabled": true,
+		"python.linting.pycodestyleEnabled": true,
+		
+		"terminal.integrated.shell.linux": "/bin/bash",
+			"terminal.integrated.inheritEnv": true,
+			
+		"workbench.editor.enablePreview": true
+		},
+	
+		"extensions": [
+			"coenraads.bracket-pair-colorizer-2",
+		"ms-python.python",
+			"njpwerner.autodocstring",
+			"mhutchie.git-graph",
+			"eamodio.gitlens",
+		"formulahendry.auto-close-tag",
+		"mikestead.dotenv",
+		"christian-kohler.path-intellisense",
+		"davidanson.vscode-markdownlint"
+		],
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "pip3 install --user -r requirements.txt",
+
+	// Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+	"remoteUser": "vscode"
+}
