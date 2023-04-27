@@ -1,6 +1,7 @@
 import math
 from typing import List, Tuple, Union
 
+from quantum.error_correction.helpers import convert_qubit_list_to_binary
 
 class RPlanarCode:
     """Rotated Planar surface code, defined as coordinates over:
@@ -43,23 +44,23 @@ class RPlanarCode:
 
         self._dimension = dimension
         self._num_stabilizer_qubits = int((dimension**2 - 1) / 2)
-        self._name = f"D = {self._dimension} Rotated Planar Surface Code"
+        self._name = f"D = {dimension} Rotated Planar Surface Code"
 
-        self._parity_checks = {
+        self._stabilizers = {
             "x": [],
             "z": []
         }
 
-        # initial Z-type parity checks
+        # initial Z-type stabilizers
         p_check_weight_2 = (1 << self._dimension) + 1
         p_check_weight_4 = ((3 << self._dimension) + 3) << 1
         
         p_temp = 0
         for p in range(self._num_stabilizer_qubits):
 
-            # weight-2 parity checks
+            # weight-2 Z-type stabilizers
             if p_temp % self._dimension == 0:
-                self._parity_checks["z"].append(p_check_weight_2)
+                self._stabilizers["z"].append(p_check_weight_2)
                 if p_temp == 0:
                     p_check_weight_2 = \
                         p_check_weight_2 << (2 * self._dimension) - 1
@@ -68,30 +69,30 @@ class RPlanarCode:
                     p_check_weight_2 = p_check_weight_2 << 1
                     p_check_weight_4 = p_check_weight_4 << 2
                     p_temp = 0
-            else:  # weight-4 parity checks
-                self._parity_checks["z"].append(p_check_weight_4)
+            else:  # weight-4 Z-type stabilizers
+                self._stabilizers["z"].append(p_check_weight_4)
                 p_check_weight_4 = p_check_weight_4 << 2
                 p_temp += 1
 
-        # initial X-type parity checks
+        # initial X-type stabilizers
         p_check_weight_2 = 6
         p_check_weight_4 = (3 << self._dimension) + 3
 
         p_temp = 0
         for p in range(self._num_stabilizer_qubits):
 
-            # weight-4 parity checks
+            # weight-4 X-type stabilizers
             if p >= (self._dimension - 1) / 2 and \
                 p < (self._dimension * (self._dimension - 1)) / 2:
-                self._parity_checks["x"].append(p_check_weight_4)
+                self._stabilizers["x"].append(p_check_weight_4)
                 p_check_weight_4 = p_check_weight_4 << 2
                 p_temp += 1
                 if p_temp == (self._dimension - 1) / 2:
                     p_check_weight_4 = p_check_weight_4 << 2
                 elif p_temp == self._dimension - 1:
                     p_temp = 0
-            else:  # weight-2 parity checks
-                self._parity_checks["x"].append(p_check_weight_2)
+            else:  # weight-2 X-type stabilizers
+                self._stabilizers["x"].append(p_check_weight_2)
                 if p == ((self._dimension - 1) / 2) - 1:
                     p_check_weight_2 = \
                         p_check_weight_2 << ((self._dimension - 1)**2 + 1)
@@ -119,25 +120,6 @@ class RPlanarCode:
 
         return math.floor(index / dim), index % dim
 
-    def _convert_qubit_list_to_binary(self, error_string: List[int]) -> int:
-        """Takes a list of marked qubit inidices and converts to a binary
-        representation where unmarked qubit indices are set to 0, marked set
-        to 1.
-
-        Parameters
-        ----------
-        error_string : List[int]
-            List of marked qubit indices
-
-        Returns
-        -------
-        int
-            Binary representation of unmarked and marked qubit indices
-        """
-        num = 0
-        for i in error_string:
-            num += (1 << i)
-        return num
 
     def generate_syndrome(
         self, error_string: Union[int, List[int]], error_type: str="x"
@@ -155,23 +137,25 @@ class RPlanarCode:
             The data qubit error string, given in binary form or as a list of
             errored data qubit indices
         error_type : str, optional
-            _description_, by default "x"
+            The type of error the error_string represents, by default "x"
 
         Returns
         -------
         int
-            _description_
+            Corresponding syndrome string for the error_string provided
         """
 
         if isinstance(error_string, List):
-            error_string = self._convert_qubit_list_to_binary(error_string)
+            error_string = convert_qubit_list_to_binary(error_string)
 
+        # syndrome type is opposite to error type
         syndrome_type = next(s for s in ["x", "z"] if s != error_type)
 
+        # build the syndrome string
         syndrome = 0
-        for i, parity_check in enumerate(self._parity_checks[syndrome_type]):
+        for i, stabilizer in enumerate(self._stabilizers[syndrome_type]):
             res = 0
-            par = parity_check & error_string
+            par = stabilizer & error_string
             while par:
                 res ^= par & 1
                 par >>= 1
@@ -183,26 +167,32 @@ class RPlanarCode:
     def draw(
         self,
         x_error_string: Union[int, List[int]]=0,
-        z_error_string: Union[int, List[int]]=0
+        z_error_string: Union[int, List[int]]=0,
+        z_syndrome_string: Union[int, List[int]]=0,
+        restrict_graph: str=None
     ) -> None:
         """Method to print diagrammatic string representation of the code to
         the terminal.
         """
+
+        if restrict_graph not in [None, "x", "z"]:
+            raise ValueError("restrict graph must be either 'x' or 'z'!")
         
         x_syndrome = 0
         z_syndrome = 0
         if x_error_string:
             if isinstance(x_error_string, List):
-                x_error_string = self._convert_qubit_list_to_binary(
-                    x_error_string
-                )
+                x_error_string = convert_qubit_list_to_binary(x_error_string)
             z_syndrome = self.generate_syndrome(x_error_string, error_type="x")
         if z_error_string:
             if isinstance(z_error_string, List):
-                z_error_string = self._convert_qubit_list_to_binary(
-                    z_error_string
-                )
+                z_error_string = convert_qubit_list_to_binary(z_error_string)
             x_syndrome = self.generate_syndrome(z_error_string, error_type="z")
+
+        if z_syndrome_string:
+            if isinstance(z_syndrome, List):
+                z_syndrome_string = convert_qubit_list_to_binary(z_syndrome_string)
+            z_syndrome |= z_syndrome_string
 
         x = 0
         z = 0
@@ -212,7 +202,11 @@ class RPlanarCode:
         for i in range(math.floor(self._dimension / 2)):
             if (1 << x) & x_syndrome:
                 str_code += "\033[92m"
-            str_code += "X" + "{:<15}".format(i) + "\033[0m"
+            if not restrict_graph == "z":
+                str_code += "X" + "{:<15}".format(i)
+            else:
+                str_code += "{:<16}".format("")
+            str_code += "\033[0m"
             x += 1
         str_code += "\n" + "{:>4}".format("")
 
@@ -229,15 +223,22 @@ class RPlanarCode:
 
                         if (1 << z) & z_syndrome:
                             str_code += "\033[93m"
-                        str_code += "Z"  + "{:<7}".format(z) + "\033[0m"
+                        if not restrict_graph == "x":
+                            str_code += "Z" + "{:<7}".format(z)
+                        else:
+                            str_code += "{:<8}".format("")
+                        str_code += "\033[0m"
                         z += 1
 
                         if i != math.ceil(self._dimension / 2) - 1:
 
                             if (1 << x) & x_syndrome:
                                 str_code += "\033[92m"
-
-                            str_code += "X"  + "{:<7}".format(x) + "\033[0m"
+                            if not restrict_graph == "z":
+                                str_code += "X" + "{:<7}".format(x)
+                            else:
+                                str_code += "{:<8}".format("")
+                            str_code += "\033[0m"
                             x += 1
 
                     str_code += "\n" + "{:>4}".format("")
@@ -260,7 +261,11 @@ class RPlanarCode:
         for i in range(x, self._num_stabilizer_qubits):
             if (1 << i) & x_syndrome:
                 str_code += "\033[92m"
-            str_code += "X" + "{:<15}".format(i) + "\033[0m"
+            if not restrict_graph == "z":
+                str_code += "X" + "{:<15}".format(i)
+            else:
+                str_code += "{:<16}".format("")
+            str_code += "\033[0m"
         str_code += "\n"
 
         
@@ -275,13 +280,3 @@ class RPlanarCode:
         print("\033[92mX syndrome")
         print("\033[93mZ syndrome\033[0m")
         print()
-
-if __name__ == "__main__":
-
-    code = RPlanarCode(7)
-    # code.draw(x_error_string=69793742848, z_error_string=4294967552)
-    # code.draw(x_error_string=[19, 30, 36], z_error_string=[32, 8])
-    code.draw(z_error_string=[1, 47, 43], x_error_string=[7, 21, 28, 20, 34, 41])
-
-    # code = RPlanarCode(5)
-    # code.draw(z_error_string=[12, 18], x_error_string=[12])
