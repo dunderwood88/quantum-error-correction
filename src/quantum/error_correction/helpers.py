@@ -19,3 +19,14 @@ def convert_qubit_list_to_binary(error_string: List[int]) -> int:
     for i in error_string:
         num += (1 << i)
     return num
+
+def convert_binary_to_qubit_list(error_string: int) -> List[int]:
+
+    indexes = []
+    i = 0
+    while error_string > 0:
+        if error_string & 1:
+            indexes.append(i)
+        i += 1
+        error_string >>= 1
+    return indexes

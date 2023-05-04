@@ -1,7 +1,7 @@
 import math
 from typing import List, Tuple, Union
 
-from quantum.error_correction.helpers import convert_qubit_list_to_binary
+from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
 
 class RPlanarCode:
     """Rotated Planar surface code, defined as coordinates over:
@@ -122,7 +122,7 @@ class RPlanarCode:
 
 
     def generate_syndrome(
-        self, error_string: Union[int, List[int]], error_type: str="x"
+        self, error_string: Union[int, List[int]], error_type: str="x", show_all_adjacent: bool=False
     ) -> int:
         """Given a data qubit error string in binary or listed qubit index 
         form, and the error type, generate a syndrome string in binary form for
@@ -157,7 +157,10 @@ class RPlanarCode:
             res = 0
             par = stabilizer & error_string
             while par:
-                res ^= par & 1
+                if show_all_adjacent:
+                    res = 1
+                else:
+                    res ^= par & 1
                 par >>= 1
 
             syndrome += res << i
@@ -190,9 +193,10 @@ class RPlanarCode:
             x_syndrome = self.generate_syndrome(z_error_string, error_type="z")
 
         if z_syndrome_string:
-            if isinstance(z_syndrome, List):
+            if isinstance(z_syndrome_string, List):
                 z_syndrome_string = convert_qubit_list_to_binary(z_syndrome_string)
-            z_syndrome |= z_syndrome_string
+            # z_syndrome |= z_syndrome_string
+            z_syndrome = z_syndrome_string
 
         x = 0
         z = 0

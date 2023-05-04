@@ -1,56 +1,8 @@
 from collections import defaultdict
 from typing import List, Union
 
-from quantum.error_correction.helpers import convert_qubit_list_to_binary
-from quantum.error_correction.codes.rotated_planar import RPlanarCode
-
-
-# code = RPlanarCode(7)
-# # code.draw(x_error_string=69793742848, z_error_string=4294967552)
-# # code.draw(x_error_string=[19, 30, 36], z_error_string=[32, 8])
-# code.draw(z_error_string=[1, 47, 43], x_error_string=[7, 21, 28, 20, 34, 41])
-
-code = RPlanarCode(7)
-# code.draw(
-#     x_error_string=[20, 42, 50, 33],
-#     z_syndrome_string=[11],
-#     restrict_graph="z"
-# )
-
-# x_error = [20, 33, 8]
-# x_error_bin = convert_qubit_list_to_binary(x_error)
-# syn = code.generate_syndrome(x_error_bin, error_type="x")
-
-# print(syn)
-
-# code.draw(
-#     x_error_string=x_error_bin,
-#     restrict_graph="z"
-# )
-
-# i = 0
-# while syn:
-#     if syn & 1:
-#         x_error_bin |= code._stabilizers["z"][i]
-#     syn >>= 1
-#     i += 1
-
-# code.draw(
-#     x_error_string=x_error_bin,
-#     restrict_graph="z"
-# )
-
-
-# growth
-# 1: half-step
-# for each stabilizer:
-#   data_string |= stabilizer
-#   store neighbouring stabilizers for step 2
-#
-# 2: full-step
-# if cluster still odd
-# for each neighbour stabilizer_index:
-#   syndrome_string |= stabilizer_index
+from src.quantum.error_correction.helpers import convert_qubit_list_to_binary, convert_binary_to_qubit_list
+from src.quantum.error_correction.codes.rotated_planar import RPlanarCode
 
 
 def get_set_count(num: int) -> int:
@@ -83,54 +35,93 @@ def union_find_naive(syndrome_string: Union[int, List[int]], syndrome_type: str=
     even_clusters = {}
     odd_clusters = defaultdict(lambda: (0, 0))
     
-    # half step
     syn = syndrome_string
-    flag = 0
-    i = 0
+    full_step = 0
+    first_pass = 1
+    stabilizer_index = 0
+    count = 0
     while True:
-        if syn & 1:
-            if not flag:
-                stabilizer = code._stabilizers[syndrome_type][i]
-                data_tree, syndrome_tree = odd_clusters[i]
-                odd_clusters[i] = (data_tree | stabilizer, syndrome_tree)
+        if stabilizer_index not in even_clusters.keys() and (syn & 1):
+            if not full_step:
+                data_tree, syndrome_tree = odd_clusters[stabilizer_index]
+                if first_pass:
+                    data_tree |= code._stabilizers[syndrome_type][stabilizer_index]
+                else:
+                    for stabilizer in convert_binary_to_qubit_list(syndrome_tree):
+                        data_tree |= code._stabilizers[syndrome_type][stabilizer]
+                odd_clusters[stabilizer_index] = (data_tree, syndrome_tree)
             else:
-                data_tree, syndrome_tree = odd_clusters[i]
-                update_syndrome = code.generate_syndrome(data_tree)
-                odd_clusters[i] = (data_tree, syndrome_tree | update_syndrome)
+                data_tree, syndrome_tree = odd_clusters[stabilizer_index]
+                update_syndrome = code.generate_syndrome(
+                    data_tree, show_all_adjacent=True
+                )
+                odd_clusters[stabilizer_index] = (
+                    data_tree, syndrome_tree | update_syndrome
+                )
+                first_pass = 0
 
             root_merge = 0
-            for root, trees in odd_clusters.items():
-                if get_set_count(odd_clusters[i][flag] & trees[flag]) == 1:
+            for root, trees in {
+                k: v for k, v in odd_clusters.items() if k != stabilizer_index
+            }.items():
+                if get_set_count(
+                    odd_clusters[stabilizer_index][full_step] & trees[full_step]
+                ) >= 1:
                     root_merge = root
                     break
-            
+
             if root_merge:
                 data_tree, syndrome_tree = odd_clusters[root_merge]
                 even_clusters[root_merge] = (
-                    odd_clusters[i][0] | data_tree,
-                    syndrome_tree | odd_clusters[i][1] | (1 << i) | (1 << root_merge)
+                    odd_clusters[stabilizer_index][0] | data_tree,
+                    syndrome_tree
+                    | odd_clusters[stabilizer_index][1]
+                    | (1 << stabilizer_index)
+                    | (1 << root_merge)
                 )
-                del odd_clusters[i]
+                del odd_clusters[stabilizer_index]
                 del odd_clusters[root_merge]
+                syndrome_string &= ~((1 << stabilizer_index) | (1 << root_merge))
 
         syn >>= 1
 
         if syn == 0:
+            count += 1
             if odd_clusters:
                 syn = syndrome_string
-                flag = not flag
-                i = 0
+                full_step = not full_step
+                stabilizer_index = 0
             else:
                 break
         else:
-            i += 1
+            stabilizer_index += 1
 
-    return even_clusters
+    return even_clusters, count
+
+### --- D = 7  --- ###
+# code = RPlanarCode(7)
+# x_error = [18, 24, 30]
+# x_error = [23, 24, 18]
+### -------------- ###
+
+### --- D = 9  --- ###
+code = RPlanarCode(9)
+# x_error = [18, 24, 30]
+# x_error = [23, 24, 18]
+x_error = [30, 38, 39, 33]
+### -------------- ###
+
+### --- D = 11 --- ###
+# code = RPlanarCode(11)
+# x_error = [40, 50, 60]
+### -------------- ###
+
+### --- D = 15 --- ###
+code = RPlanarCode(15)
+x_error = [73, 85, 97, 109, 108, 94]
+### -------------- ###
 
 
-# x_error = [20, 33, 8]
-# x_error = [8, 16]
-x_error = [26, 32]
 x_error_bin = convert_qubit_list_to_binary(x_error)
 syn = code.generate_syndrome(x_error_bin, error_type="x")
 
@@ -140,9 +131,9 @@ code.draw(
     x_error_string=x_error_bin,
     restrict_graph="z"
 )
+# exit()
 
-
-clusters = union_find_naive(syn)
+clusters, count = union_find_naive(syn)
 
 data = 0
 syn = 0
@@ -152,6 +143,7 @@ for i in clusters.values():
     syn |= i[1]
 
 print("AFTER UNION FIND")
+print(count)
 print(clusters)
 code.draw(
     x_error_string=data,
