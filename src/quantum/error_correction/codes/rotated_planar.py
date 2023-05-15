@@ -1,9 +1,11 @@
 import math
-from typing import List, Tuple, Union
+from typing import List, Union
 
+from src.quantum.error_correction.codes.abstract_surface_code import AbstractSurfaceCode
 from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
 
-class RPlanarCode:
+
+class RPlanarCode(AbstractSurfaceCode):
     """Rotated Planar surface code, defined as coordinates over:
         D: data qubits
         X: X-type stabilizer qubits
@@ -12,7 +14,7 @@ class RPlanarCode:
 
     Example for dimension = 3
     (a.k.a. Surface-17 https://arxiv.org/pdf/1612.08208.pdf)
-    
+
                     X0
         D0      D1      D2
     Z0      X1      Z1
@@ -22,7 +24,7 @@ class RPlanarCode:
             X3
 
     Example for dimension = 5
-    
+
                     X0              X1
         D0      D1      D2      D3      D4
     Z0      X2      Z1      X3      Z2
@@ -38,23 +40,15 @@ class RPlanarCode:
     """
 
     def __init__(self, dimension: int) -> None:
+        super().__init__(dimension)
 
-        if dimension & 0 or dimension == 1:
-            raise ValueError("Dimension must be an odd number greater than 1!")
-
-        self._dimension = dimension
         self._num_stabilizer_qubits = int((dimension**2 - 1) / 2)
         self._name = f"D = {dimension} Rotated Planar Surface Code"
-
-        self._stabilizers = {
-            "x": [],
-            "z": []
-        }
 
         # initial Z-type stabilizers
         p_check_weight_2 = (1 << self._dimension) + 1
         p_check_weight_4 = ((3 << self._dimension) + 3) << 1
-        
+
         p_temp = 0
         for p in range(self._num_stabilizer_qubits):
 
@@ -99,103 +93,31 @@ class RPlanarCode:
                 else:
                     p_check_weight_2 = p_check_weight_2 << 2
 
-    def _get_qubit_row_column(
-        self, index: int, type: str="z"
-    ) -> Tuple[int, int]:
-        
-        if (type == "x" or type == "z") and \
-            (index > self._num_stabilizer_qubits - 1):
-            raise ValueError("Index greater than number of stabilizer qubits!")
-
-
-        if type == "z":
-            dim = math.ceil(self._dimension / 2)
-        elif type == "x":
-            dim = math.floor(self._dimension / 2)
-        elif type == "d":
-            dim = self._dimension
-
-        else:
-            raise ValueError("Invalid qubit type!")
-
-        return math.floor(index / dim), index % dim
-
-
-    def generate_syndrome(
-        self, error_string: Union[int, List[int]], error_type: str="x", show_all_adjacent: bool=False
-    ) -> int:
-        """Given a data qubit error string in binary or listed qubit index 
-        form, and the error type, generate a syndrome string in binary form for
-        the corresponding syndrome qubits.
-        
-        error_type = "x" -> z-type syndrome string
-        error_type = "z" -> x-type syndrome string
-
-        Parameters
-        ----------
-        error_string : Union[int, List[int]]
-            The data qubit error string, given in binary form or as a list of
-            errored data qubit indices
-        error_type : str, optional
-            The type of error the error_string represents, by default "x"
-
-        Returns
-        -------
-        int
-            Corresponding syndrome string for the error_string provided
-        """
-
-        if isinstance(error_string, List):
-            error_string = convert_qubit_list_to_binary(error_string)
-
-        # syndrome type is opposite to error type
-        syndrome_type = next(s for s in ["x", "z"] if s != error_type)
-
-        # build the syndrome string
-        syndrome = 0
-        for i, stabilizer in enumerate(self._stabilizers[syndrome_type]):
-            res = 0
-            par = stabilizer & error_string
-            while par:
-                if show_all_adjacent:
-                    res = 1
-                else:
-                    res ^= par & 1
-                par >>= 1
-
-            syndrome += res << i
-
-        return syndrome 
-
     def draw(
         self,
-        x_error_string: Union[int, List[int]]=0,
-        z_error_string: Union[int, List[int]]=0,
-        z_syndrome_string: Union[int, List[int]]=0,
-        restrict_graph: str=None
+        x_data_string: Union[int, List[int]] = 0,
+        z_data_string: Union[int, List[int]] = 0,
+        x_syndrome_string: Union[int, List[int]] = 0,
+        z_syndrome_string: Union[int, List[int]] = 0,
+        restrict_graph: str = None
     ) -> None:
-        """Method to print diagrammatic string representation of the code to
-        the terminal.
-        """
 
-        if restrict_graph not in [None, "x", "z"]:
-            raise ValueError("restrict graph must be either 'x' or 'z'!")
-        
         x_syndrome = 0
         z_syndrome = 0
-        if x_error_string:
-            if isinstance(x_error_string, List):
-                x_error_string = convert_qubit_list_to_binary(x_error_string)
-            z_syndrome = self.generate_syndrome(x_error_string, error_type="x")
-        if z_error_string:
-            if isinstance(z_error_string, List):
-                z_error_string = convert_qubit_list_to_binary(z_error_string)
-            x_syndrome = self.generate_syndrome(z_error_string, error_type="z")
+        if x_data_string:
+            if isinstance(x_data_string, List):
+                x_data_string = convert_qubit_list_to_binary(x_data_string)
+            z_syndrome = self.generate_syndrome(x_data_string, error_type="x")
+        if z_data_string:
+            if isinstance(z_data_string, List):
+                z_data_string = convert_qubit_list_to_binary(z_data_string)
+            x_syndrome = self.generate_syndrome(z_data_string, error_type="z")
 
         if z_syndrome_string:
             if isinstance(z_syndrome_string, List):
-                z_syndrome_string = convert_qubit_list_to_binary(z_syndrome_string)
-            # z_syndrome |= z_syndrome_string
+                z_syndrome_string = convert_qubit_list_to_binary(
+                    z_syndrome_string
+                )
             z_syndrome = z_syndrome_string
 
         x = 0
@@ -221,7 +143,7 @@ class RPlanarCode:
                 str_code += "\n"
                 if z < self._num_stabilizer_qubits:
                     if not even_row:
-                            str_code += "{:>8}".format("")
+                        str_code += "{:>8}".format("")
 
                     for i in range(math.ceil(self._dimension / 2)):
 
@@ -248,8 +170,8 @@ class RPlanarCode:
                     str_code += "\n" + "{:>4}".format("")
                     even_row = not even_row
 
-            has_x_error = (1 << d) & x_error_string
-            has_z_error = (1 << d) & z_error_string
+            has_x_error = (1 << d) & x_data_string
+            has_z_error = (1 << d) & z_data_string
 
             if has_x_error and has_z_error:
                 str_code += "\033[95m"
@@ -272,7 +194,6 @@ class RPlanarCode:
             str_code += "\033[0m"
         str_code += "\n"
 
-        
         print()
         print(str_code)
         print()
