@@ -1,5 +1,4 @@
-# algorithms-and-stuff
-
+# Quantum Error Correction Demos
 Implementing QEC surface codes and decoding algorithms.
 Work in progress.
 
