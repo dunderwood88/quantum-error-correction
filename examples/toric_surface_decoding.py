@@ -1,32 +1,34 @@
 from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
-from src.quantum.error_correction.codes.rotated_planar_code import RPlanarCode
+from src.quantum.error_correction.codes.toric_code import ToricCode
 
 from src.quantum.error_correction.decoders.union_find.uf_functions import (
     generate_spanning_trees, syndrome_validation_naive, tree_peeler)
 
 ### --- D = 3  --- ###
-# code = RPlanarCode(3)
-# x_error = [4]
+# code = ToricCode(3)
+# # x_error = [1, 14, 17]
+# x_error = [1]
 ### -------------- ###
 
 ### --- D = 5  --- ###
-code = RPlanarCode(5)
-x_error = [12, 16]
+code = ToricCode(5)
+x_error = [1, 14, 17]
+x_error = [1, 15]
+x_error = [1, 7, 12]
+x_error = [3, 13, 43]
 ### -------------- ###
 
 ## --- D = 7  --- ###
-# code = RPlanarCode(7)
-# x_error = [18, 24, 30]
-# x_error = [23, 24, 18]
-# x_error = [18, 24]
+# code = ToricCode(7)
+# x_error = [2, 10, 17]
+# x_error = [4, 18, 32, 46, 60]
 ## -------------- ###
 
 ### --- D = 9  --- ###
-code = RPlanarCode(9)
-x_error = [18, 24, 30]
-x_error = [23, 24, 18]
-x_error = [30, 38, 39, 33]
-x_error = [40, 32, 48]
+# code = RPlanarCode(9)
+# x_error = [18, 24, 30]
+# x_error = [23, 24, 18]
+# x_error = [30, 38, 39, 33]
 ### -------------- ###
 
 ### --- D = 11 --- ###
@@ -59,6 +61,7 @@ code.draw(
     x_data_string=x_error_bin,
     restrict_graph="z"
 )
+# exit()
 
 # 2) grow clusters
 clusters, count = syndrome_validation_naive(error_syn, code)
