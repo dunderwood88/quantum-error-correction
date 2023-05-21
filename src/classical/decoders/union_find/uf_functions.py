@@ -1,16 +1,44 @@
 from collections import OrderedDict
 from typing import Dict, List, Tuple, Union
-from src.quantum.error_correction.codes.abstract_surface_code import AbstractSurfaceCode
 
-from src.quantum.error_correction.helpers import (convert_binary_to_qubit_list,
-                                                  convert_qubit_list_to_binary)
+from src.classical.helpers import (convert_binary_to_qubit_list,
+                                   convert_qubit_list_to_binary)
+from src.classical.periodic_grid_graph import PeriodicGridGraph
+from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
+
+
+def grow_clusters(
+    marked_vertices: List[int],
+    graph: PeriodicGridGraph,
+) -> Tuple[Dict[int, Tuple[List[int], List[int]]], int]:
+    """Grows and combines clusters from marked vertex roots until they are even.
+    Provides a simplified interface to the syndrome_validation function which
+    helps describe the problem structure without QEC language.
+
+
+    Parameters
+    ----------
+    marked_vertices : List[int]
+        list of indexes of marked vertices from which to grow clusters
+    graph : PeriodicGridGraph
+        the code over which the clusters are grown
+
+    Returns
+    -------
+    Tuple[Dict[int, Tuple[List[int], List[int]]], int]
+        the resulting clusters dictionary, with keys as cluster roots and
+        values as edges/vertices within the cluster, and the total number of
+        growth steps
+    """
+
+    return syndrome_validation_naive(marked_vertices, graph)
 
 
 def syndrome_validation_naive(
     syndrome_string: Union[int, List[int]],
     code: AbstractSurfaceCode,
     syndrome_type: str = "z"
-) -> Tuple[int, Dict[int, Tuple[int, int]]]:
+) -> Tuple[Dict[int, Tuple[int, int]], int]:
     """Naive implementation of the syndrome validation step as outlined in
     https://arxiv.org/pdf/1709.06218.pdf.
 
@@ -39,10 +67,10 @@ def syndrome_validation_naive(
 
     Returns
     -------
-    Tuple[int, Dict[int, Tuple[int, int]]]
-        the total number of growth steps, and the resulting even clusters
-        dictionary, with keys as cluster roots and values as edges/vertices
-        within the cluster (syndrome and data qubits)
+    Tuple[Dict[int, Tuple[int, int]], int]
+        the resulting even clusters dictionary, with keys as cluster roots and
+        values as edges/vertices within the cluster (syndrome and data qubits),
+        and the total number of growth steps
     """
 
     # set up the odd and even clusters
@@ -72,7 +100,8 @@ def syndrome_validation_naive(
                         data_tree |= stabilizer
                     else:
                         for stab in convert_binary_to_qubit_list(syndrome_tree):
-                            data_tree |= code.get_stabilizers(stab, syndrome_type)
+                            data_tree |= code.get_stabilizers(
+                                stab, syndrome_type)
                     odd_clusters[stabilizer_index] = (data_tree, syndrome_tree)
                 else:
                     data_tree, syndrome_tree = odd_clusters[stabilizer_index]
@@ -174,7 +203,8 @@ def generate_spanning_trees(
                 continue
 
             # get the data qubits of the stabilizer
-            stab = code.get_stabilizers(current_node[0], original_syndrome_type)
+            stab = code.get_stabilizers(
+                current_node[0], original_syndrome_type)
 
             # find adjacent nodes that are part of the syndrome
             neighbours = [
@@ -197,7 +227,7 @@ def generate_spanning_trees(
                 1 if (1 << current_node[1]) & syn else 0,
                 1 if (1 << current_node[0]) & syn else 0
 
-             ] if len(current_node) > 1 else None
+            ] if len(current_node) > 1 else None
 
         spanning_trees[root] = visited
         syn ^= syndrome_qubits

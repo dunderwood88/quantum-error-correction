@@ -1,7 +1,8 @@
-from src.quantum.error_correction.codes.simple_toric_code import RepeatingGraph
-from src.quantum.error_correction.decoders.union_find.uf_functions import generate_spanning_trees, syndrome_validation_naive, tree_peeler
+from src.classical.periodic_grid_graph import PeriodicGridGraph
+from src.classical.decoders.union_find.uf_functions import (
+    generate_spanning_trees, grow_clusters, tree_peeler)
 
-graph = RepeatingGraph(6)
+graph = PeriodicGridGraph(6)
 
 # print graph without marked edges or vertices
 graph.draw_graph()
@@ -12,7 +13,7 @@ marked_vertices = graph.mark_vertices(edges)
 # print graph without marked edges or vertices
 graph.draw_graph(edges, marked_vertices)
 
-clusters, count = syndrome_validation_naive(marked_vertices, graph)
+clusters, count = grow_clusters(marked_vertices, graph)
 spanning_trees = generate_spanning_trees(clusters, graph, marked_vertices)
 for root, tree in spanning_trees.items():
     print(tree_peeler(list(tree.values())))

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Union
 
-from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
+from src.classical.helpers import convert_qubit_list_to_binary
 
 
 class AbstractSurfaceCode(ABC):

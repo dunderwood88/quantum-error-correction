@@ -1,8 +1,8 @@
 import math
 from typing import List, Union
 
-from src.quantum.error_correction.codes.abstract_surface_code import AbstractSurfaceCode
-from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
+from src.classical.helpers import convert_qubit_list_to_binary
+from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 
 
 class RPlanarCode(AbstractSurfaceCode):
@@ -15,6 +15,7 @@ class RPlanarCode(AbstractSurfaceCode):
     Example for dimension = 3
     (a.k.a. Surface-17 https://arxiv.org/pdf/1612.08208.pdf)
 
+    combined X and Z stabilizers:
                     X0
         D0      D1      D2
     Z0      X1      Z1
@@ -25,6 +26,7 @@ class RPlanarCode(AbstractSurfaceCode):
 
     Example for dimension = 5
 
+    combined X and Z stabilizers:
                     X0              X1
         D0      D1      D2      D3      D4
     Z0      X2      Z1      X3      Z2
@@ -77,7 +79,7 @@ class RPlanarCode(AbstractSurfaceCode):
 
             # weight-4 X-type stabilizers
             if p >= (self._dimension - 1) / 2 and \
-                p < (self._dimension * (self._dimension - 1)) / 2:
+                    p < (self._dimension * (self._dimension - 1)) / 2:
                 self._stabilizers["x"].append(p_check_weight_4)
                 p_check_weight_4 = p_check_weight_4 << 2
                 p_temp += 1
