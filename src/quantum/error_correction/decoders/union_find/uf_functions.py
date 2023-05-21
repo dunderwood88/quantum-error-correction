@@ -150,6 +150,10 @@ def generate_spanning_trees(
     """
 
     spanning_trees = {}
+
+    if isinstance(original_syndrome, List):
+        original_syndrome = convert_qubit_list_to_binary(original_syndrome)
+
     syn = original_syndrome
 
     # for each cluster, find the spanning tree

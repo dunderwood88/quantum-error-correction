@@ -99,7 +99,8 @@ class RPlanarCode(AbstractSurfaceCode):
         z_data_string: Union[int, List[int]] = 0,
         x_syndrome_string: Union[int, List[int]] = 0,
         z_syndrome_string: Union[int, List[int]] = 0,
-        restrict_graph: str = None
+        restrict_graph: str = None,
+        **kwargs
     ) -> None:
 
         x_syndrome = 0
