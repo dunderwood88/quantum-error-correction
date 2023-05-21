@@ -44,7 +44,7 @@ class PeriodicGridGraph(ToricCode):
 
     def __init__(self, dimension: int) -> None:
         super().__init__(dimension)
-        self._name = f"D = {dimension} repeating graph"
+        self._name = f"D = {dimension} periodic grid graph"
 
     def get_neighbour_edges(self, index: int) -> List[int]:
         """Gets the neighbouring edges for a given vertex index.
