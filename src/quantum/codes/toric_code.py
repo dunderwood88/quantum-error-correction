@@ -110,9 +110,11 @@ class ToricCode(AbstractSurfaceCode):
 
         if "simplify" in kwargs:
             z_syndrome_label = "\033[1m" + "V"
+            marked_syndrome_label = "\033[92m"
             data_label = "e"
         else:
             z_syndrome_label = "Z"
+            marked_syndrome_label = "\033[93m"
             data_label = "D"
 
         x_syndrome = 0
@@ -178,7 +180,7 @@ class ToricCode(AbstractSurfaceCode):
                 if not restrict_graph == "x":
 
                     if (1 << z) & z_syndrome:
-                        str_code += "\033[93m"
+                        str_code += marked_syndrome_label
 
                     str_code += z_syndrome_label + \
                         "{:<7}".format(z) + "\033[0m"
