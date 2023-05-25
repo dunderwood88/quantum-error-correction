@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Union
 
-from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
+from src.classical.helpers import convert_qubit_list_to_binary
 
 
 class AbstractSurfaceCode(ABC):
@@ -110,7 +110,8 @@ class AbstractSurfaceCode(ABC):
         z_data_string: Union[int, List[int]] = 0,
         x_syndrome_string: Union[int, List[int]] = 0,
         z_syndrome_string: Union[int, List[int]] = 0,
-        restrict_graph: str = None
+        restrict_graph: str = None,
+        **kwargs
     ) -> None:
         """Prints a visual representation of the code to the console, with the
         ability to mark qubits by providing binary strings for each qubit type.

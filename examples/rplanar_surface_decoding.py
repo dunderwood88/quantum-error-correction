@@ -1,7 +1,7 @@
-from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
-from src.quantum.error_correction.codes.rotated_planar_code import RPlanarCode
+from src.classical.helpers import convert_qubit_list_to_binary
+from src.quantum.codes.rotated_planar_code import RPlanarCode
 
-from src.quantum.error_correction.decoders.union_find.uf_functions import (
+from src.classical.decoders.union_find.uf_functions import (
     generate_spanning_trees, syndrome_validation_naive, tree_peeler)
 
 ### --- D = 3  --- ###

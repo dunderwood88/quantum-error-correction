@@ -1,8 +1,7 @@
-import math
 from typing import List, Union
 
-from src.quantum.error_correction.codes.abstract_surface_code import AbstractSurfaceCode
-from src.quantum.error_correction.helpers import convert_qubit_list_to_binary
+from src.classical.helpers import convert_qubit_list_to_binary
+from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 
 
 class ToricCode(AbstractSurfaceCode):
@@ -12,34 +11,39 @@ class ToricCode(AbstractSurfaceCode):
         Z: Z-type stabilizer qubits
     Indices run from left-to-right, top-to-bottom, for all qubit types.
 
-        D0      D1      D2     
-    D3  Z0  D4  Z1  D5  Z2  D3 
-        D6      D7      D8     
-    D9  Z3  D10 Z4  D11 Z5  D9 
-        D12     D13     D14    
-    D15 Z6  D16 Z7  D17 Z8  D15
-        D0      D1      D2    
+    Example for dimension = 3
 
+    Z stabilizers:
+        D0      D1      D2
+    D3  Z0  D4  Z1  D5  Z2  D3
+        D6      D7      D8
+    D9  Z3  D10 Z4  D11 Z5  D9
+        D12     D13     D14
+    D15 Z6  D16 Z7  D17 Z8  D15
+        D0      D1      D2
+
+    X stabilizers:
     X0  D0  X1  D1  X2  D2  X0
     D3      D4      D5      D3
     X3  D6  X4  D7  X5  D8  X3
     D9      D10     D11     D9
     X6  D12 X7  D13 X8  D14 X6
     D15     D16     D17     D15
-    X0  D0  X1  D1  X2  D2  X0   
+    X0  D0  X1  D1  X2  D2  X0
 
-    (combined X and Z)
-    X0      D0      X1      D1      X2      D2      X0     
-    D3      Z0      D4      Z1      D5      Z2      D3 
+    combined X and Z stabilizers:
+    X0      D0      X1      D1      X2      D2      X0
+    D3      Z0      D4      Z1      D5      Z2      D3
     X3      D6      X4      D7      X5      D8      X3
-    D9      Z3      D10     Z4      D11     Z5      D9 
-    X6      D12     X7      D13     X8      D14     X6    
+    D9      Z3      D10     Z4      D11     Z5      D9
+    X6      D12     X7      D13     X8      D14     X6
     D15     Z6      D16     Z7      D17     Z8      D15
-    X0      D0      X1      D1      X2      D2      X0    
+    X0      D0      X1      D1      X2      D2      X0
 
 
     Example for dimension = 5
 
+    Z stabilizers:
         D0      D1      D2      D3      D4
     D5  Z0  D6  Z1  D7  Z2  D8  Z3  D9  Z4  D5
         D10     D11     D12     D13     D14
@@ -52,6 +56,7 @@ class ToricCode(AbstractSurfaceCode):
     D45 Z20 D46 Z21 D47 Z22 D48 Z23 D49 Z24 D45
         D0      D1      D2      D3      D4
 
+    X stabilizers:
     X0  D0  X1  D1  X2  D2  X3  D3  X4  D4  X0
     D5      D6      D7      D8      D9      D5
     X5  D10 X6  D11 X7  D12 X8  D13 X9  D14 X5
@@ -80,7 +85,7 @@ class ToricCode(AbstractSurfaceCode):
 
             if (p + 1) % self._dimension == 0:
                 p_save ^= ((1 << (2 * self._dimension)) +
-                (1 << self._dimension)) << (row * 2 * self._dimension)
+                           (1 << self._dimension)) << (row * 2 * self._dimension)
 
             if row == self._dimension - 1:
                 mask = (1 << (2 * self._dimension ** 2)) - 1
@@ -99,8 +104,16 @@ class ToricCode(AbstractSurfaceCode):
         z_data_string: Union[int, List[int]] = 0,
         x_syndrome_string: Union[int, List[int]] = 0,
         z_syndrome_string: Union[int, List[int]] = 0,
-        restrict_graph: str = None
+        restrict_graph: str = None,
+        **kwargs
     ) -> None:
+
+        if "simplify" in kwargs:
+            z_syndrome_label = "\033[1m" + "V"
+            data_label = "e"
+        else:
+            z_syndrome_label = "Z"
+            data_label = "D"
 
         x_syndrome = 0
         z_syndrome = 0
@@ -146,33 +159,37 @@ class ToricCode(AbstractSurfaceCode):
                     str_code += "X" + "{:<7}".format(x)
                 else:
                     str_code += "{:<8}".format("")
-                str_code += str_code_d + "D" + "{:<7}".format(d) + "\033[0m"
+                str_code += str_code_d + data_label + \
+                    "{:<7}".format(d) + "\033[0m"
 
                 x += 1
                 if (d + 1) % self._dimension == 0:
                     if not restrict_graph == "z":
                         str_code += "X" + "{:<7}".format(x - self._dimension)
-                    str_code += "\n\n"
+                    str_code += "\n\n\n"
                     if row == 0:
                         final_row = str_code
 
                     row += 1
 
             else:
-                str_code += str_code_d + "D" + "{:<7}".format(d)
+                str_code += str_code_d + data_label + "{:<7}".format(d)
                 str_code += "\033[0m"
                 if not restrict_graph == "x":
 
                     if (1 << z) & z_syndrome:
                         str_code += "\033[93m"
 
-                    str_code += "Z" + "{:<7}".format(z) + "\033[0m"
+                    str_code += z_syndrome_label + \
+                        "{:<7}".format(z) + "\033[0m"
                     z += 1
 
                 if (d + 1) % self._dimension == 0:
 
-                    has_x_error = (1 << (d - self._dimension + 1)) & x_data_string
-                    has_z_error = (1 << (d - self._dimension + 1)) & z_data_string
+                    has_x_error = (
+                        1 << (d - self._dimension + 1)) & x_data_string
+                    has_z_error = (
+                        1 << (d - self._dimension + 1)) & z_data_string
 
                     if has_x_error and has_z_error:
                         str_code_d = "\033[95m"
@@ -183,94 +200,22 @@ class ToricCode(AbstractSurfaceCode):
                     else:
                         str_code_d = ""
 
-                    str_code += str_code_d + "D" + "{:<7}".format(d - self._dimension + 1) + "\033[0m" +"\n\n"
+                    str_code += str_code_d + data_label + \
+                        "{:<7}".format(d - self._dimension + 1) + \
+                        "\033[0m" + "\n\n\n"
                     row += 1
 
         str_code += final_row
-
-            
-                
-            
-
-
-        # # first X qubits
-        # for i in range(math.floor(self._dimension / 2)):
-        #     if (1 << x) & x_syndrome:
-        #         str_code += "\033[92m"
-        #     if not restrict_graph == "z":
-        #         str_code += "X" + "{:<15}".format(i)
-        #     else:
-        #         str_code += "{:<16}".format("")
-        #     str_code += "\033[0m"
-        #     x += 1
-        # str_code += "\n" + "{:>4}".format("")
-
-        # # D, Z and remaining X qubits
-        # even_row = True  # toggle flag between rows
-        # for d in range(self._dimension**2):
-        #     if d > 0 and d % self._dimension == 0:
-        #         str_code += "\n"
-        #         if z < self._num_stabilizer_qubits:
-        #             if not even_row:
-        #                 str_code += "{:>8}".format("")
-
-        #             for i in range(math.ceil(self._dimension / 2)):
-
-        #                 if (1 << z) & z_syndrome:
-        #                     str_code += "\033[93m"
-        #                 if not restrict_graph == "x":
-        #                     str_code += "Z" + "{:<7}".format(z)
-        #                 else:
-        #                     str_code += "{:<8}".format("")
-        #                 str_code += "\033[0m"
-        #                 z += 1
-
-        #                 if i != math.ceil(self._dimension / 2) - 1:
-
-        #                     if (1 << x) & x_syndrome:
-        #                         str_code += "\033[92m"
-        #                     if not restrict_graph == "z":
-        #                         str_code += "X" + "{:<7}".format(x)
-        #                     else:
-        #                         str_code += "{:<8}".format("")
-        #                     str_code += "\033[0m"
-        #                     x += 1
-
-        #             str_code += "\n" + "{:>4}".format("")
-        #             even_row = not even_row
-
-        #     has_x_error = (1 << d) & x_data_string
-        #     has_z_error = (1 << d) & z_data_string
-
-        #     if has_x_error and has_z_error:
-        #         str_code += "\033[95m"
-        #     elif has_x_error:
-        #         str_code += "\033[91m"
-        #     elif has_z_error:
-        #         str_code += "\033[94m"
-
-        #     str_code += "D" + "{:<7}".format(d) + "\033[0m"
-        # str_code += "\n" + "{:>8}".format("")
-
-        # # last X qubits
-        # for i in range(x, self._num_stabilizer_qubits):
-        #     if (1 << i) & x_syndrome:
-        #         str_code += "\033[92m"
-        #     if not restrict_graph == "z":
-        #         str_code += "X" + "{:<15}".format(i)
-        #     else:
-        #         str_code += "{:<16}".format("")
-        #     str_code += "\033[0m"
-        # str_code += "\n"
 
         print()
         print(str_code)
         print()
         print(self._name)
         print()
-        print("\033[91mX errors")
-        print("\033[94mZ errors")
-        print("\033[95mXZ errors")
-        print("\033[92mX syndrome")
-        print("\033[93mZ syndrome\033[0m")
-        print()
+        if "simplify" not in kwargs:
+            print("\033[91mX errors")
+            print("\033[94mZ errors")
+            print("\033[95mXZ errors")
+            print("\033[92mX syndrome")
+            print("\033[93mZ syndrome\033[0m")
+            print()
