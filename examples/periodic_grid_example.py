@@ -15,6 +15,5 @@ graph.draw_graph(edges, marked_vertices)
 
 clusters, count = grow_clusters(marked_vertices, graph)
 spanning_trees = generate_spanning_trees(clusters, graph, marked_vertices)
-for root, tree in spanning_trees.items():
-    print(tree_peeler(list(tree.values())))
-    print()
+corrections = tree_peeler(spanning_trees, marked_vertices)
+print(corrections)

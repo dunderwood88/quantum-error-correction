@@ -215,7 +215,7 @@ def generate_spanning_trees(
                         stab & code.get_stabilizers(n, original_syndrome_type)
                     )[0]
                 ) for n in convert_binary_to_qubit_list(
-                    code.generate_syndrome(stab)
+                    code.generate_syndrome(stab & data_qubits)
                 ) if n in syn_list
             ]
 
@@ -223,36 +223,39 @@ def generate_spanning_trees(
             stack.extend(neighbours)
 
             visited[current_node[0]] = [
-                current_node[2],  # edge
-                1 if (1 << current_node[1]) & syn else 0,
-                1 if (1 << current_node[0]) & syn else 0
+                current_node[1],
+                current_node[0],
+                current_node[2]  # edge
 
             ] if len(current_node) > 1 else None
 
-        spanning_trees[root] = visited
+        spanning_trees[root] = list(visited.values())
         syn ^= syndrome_qubits
 
     return spanning_trees
 
 
-def tree_peeler(spanning_tree):
+def tree_peeler(spanning_trees, original_syndrome):
 
-    corrections = []
+    if isinstance(original_syndrome, List):
+        original_syndrome = convert_qubit_list_to_binary(original_syndrome)
 
-    flip = False
-    while spanning_tree:
+    corrections = {}
+    syn = original_syndrome
 
-        edge = spanning_tree.pop()
+    for root, spanning_tree in spanning_trees.items():
 
-        if edge is None:
-            break
+        corrections[root] = []
 
-        edge[2] ^= flip
+        while spanning_tree:
 
-        if edge[2] == 1:
-            flip = True
-            corrections.append(edge[0])
-        else:
-            flip = False
+            edge = spanning_tree.pop()
+
+            if not edge:
+                break
+
+            if (1 << edge[1]) & syn:
+                corrections[root].append(edge[2])
+                syn ^= (1 << edge[1]) | (1 << edge[0])
 
     return corrections

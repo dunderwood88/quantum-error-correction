@@ -91,6 +91,5 @@ print(spanning_trees)
 print()
 
 # 4) peeling stage to find corrections
-for root, tree in spanning_trees.items():
-    print(tree_peeler(list(tree.values())))
-    print()
+corrections = tree_peeler(spanning_trees, error_syn)
+print(corrections)
