@@ -45,7 +45,7 @@ class AbstractSurfaceCode(ABC):
         if stabilizer_type not in self._stabilizers.keys():
             raise ValueError("Stabilizer type must be either 'x' or 'z'!")
 
-        if not index:
+        if index is None:
             return self._stabilizers[stabilizer_type]
         return self._stabilizers[stabilizer_type][index]
 
