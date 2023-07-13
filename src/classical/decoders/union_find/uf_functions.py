@@ -113,7 +113,7 @@ def syndrome_validation_naive(
                     )
                     first_step = 0
 
-                root_merge = 0  # if cluster meets another...
+                root_merge = None  # if cluster meets another...
                 for root, trees in odd_clusters.items():
                     if root != stabilizer_index:
                         if bin(
@@ -121,19 +121,22 @@ def syndrome_validation_naive(
                             trees[full_step]
                         ).count("1") >= 1:
                             root_merge = root
-                        break
+                            break
 
-                if root_merge:  # ...fuse and remove from odd cluster list
-                    data_tree, syndrome_tree = odd_clusters[root_merge]
+                if root_merge is not None:  # ...fuse and remove from odd cluster list
+                    root_data_tree, root_syndrome_tree = odd_clusters[root_merge]
+                    other_data_tree, other_syndrome_tree = odd_clusters[stabilizer_index]
+
                     even_clusters[root_merge] = (
-                        odd_clusters[stabilizer_index][0] | data_tree,
-                        syndrome_tree
-                        | odd_clusters[stabilizer_index][1]
+                        other_data_tree | root_data_tree,
+                        other_syndrome_tree | root_syndrome_tree
                         | (1 << stabilizer_index)
                         | (1 << root_merge)
                     )
+
                     del odd_clusters[stabilizer_index]
                     del odd_clusters[root_merge]
+
                     syndrome_string &= ~(
                         (1 << stabilizer_index) | (1 << root_merge)
                     )

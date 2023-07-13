@@ -18,7 +18,7 @@ def convert_qubit_list_to_binary(error_string: List[int]) -> int:
     """
     num = 0
     for i in error_string:
-        num += (1 << i)
+        num ^= (1 << i)
     return num
 
 def convert_binary_to_qubit_list(error_string: int) -> List[int]:
