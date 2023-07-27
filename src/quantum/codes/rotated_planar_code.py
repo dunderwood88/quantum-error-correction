@@ -8,14 +8,14 @@ from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 class RPlanarCode(AbstractSurfaceCode):
     """Rotated Planar surface code, defined as coordinates over:
         D: data qubits
-        X: X-type stabilizer qubits
-        Z: Z-type stabilizer qubits
+        X: X-type parity check qubits
+        Z: Z-type parity check qubits
     Indices run from left-to-right, top-to-bottom, for all qubit types.
 
     Example for dimension = 3
     (a.k.a. Surface-17 https://arxiv.org/pdf/1612.08208.pdf)
 
-    combined X and Z stabilizers:
+    combined X and Z parity checks:
                     X0
         D0      D1      D2
     Z0      X1      Z1
@@ -26,7 +26,7 @@ class RPlanarCode(AbstractSurfaceCode):
 
     Example for dimension = 5
 
-    combined X and Z stabilizers:
+    combined X and Z parity checks:
                     X0              X1
         D0      D1      D2      D3      D4
     Z0      X2      Z1      X3      Z2
@@ -44,19 +44,19 @@ class RPlanarCode(AbstractSurfaceCode):
     def __init__(self, dimension: int) -> None:
         super().__init__(dimension)
 
-        self._num_stabilizer_qubits = int((dimension**2 - 1) / 2)
+        self._num_parity_check_qubits = int((dimension**2 - 1) / 2)
         self._name = f"D = {dimension} Rotated Planar Surface Code"
 
-        # initial Z-type stabilizers
+        # initial Z-type parity checks
         p_check_weight_2 = (1 << self._dimension) + 1
         p_check_weight_4 = ((3 << self._dimension) + 3) << 1
 
         p_temp = 0
-        for p in range(self._num_stabilizer_qubits):
+        for p in range(self._num_parity_check_qubits):
 
-            # weight-2 Z-type stabilizers
+            # weight-2 Z-type parity checks
             if p_temp % self._dimension == 0:
-                self._stabilizers["z"].append(p_check_weight_2)
+                self._parity_checks["z"].append(p_check_weight_2)
                 if p_temp == 0:
                     p_check_weight_2 = \
                         p_check_weight_2 << (2 * self._dimension) - 1
@@ -65,30 +65,30 @@ class RPlanarCode(AbstractSurfaceCode):
                     p_check_weight_2 = p_check_weight_2 << 1
                     p_check_weight_4 = p_check_weight_4 << 2
                     p_temp = 0
-            else:  # weight-4 Z-type stabilizers
-                self._stabilizers["z"].append(p_check_weight_4)
+            else:  # weight-4 Z-type parity checks
+                self._parity_checks["z"].append(p_check_weight_4)
                 p_check_weight_4 = p_check_weight_4 << 2
                 p_temp += 1
 
-        # initial X-type stabilizers
+        # initial X-type parity checks
         p_check_weight_2 = 6
         p_check_weight_4 = (3 << self._dimension) + 3
 
         p_temp = 0
-        for p in range(self._num_stabilizer_qubits):
+        for p in range(self._num_parity_check_qubits):
 
-            # weight-4 X-type stabilizers
+            # weight-4 X-type parity checks
             if p >= (self._dimension - 1) / 2 and \
                     p < (self._dimension * (self._dimension - 1)) / 2:
-                self._stabilizers["x"].append(p_check_weight_4)
+                self._parity_checks["x"].append(p_check_weight_4)
                 p_check_weight_4 = p_check_weight_4 << 2
                 p_temp += 1
                 if p_temp == (self._dimension - 1) / 2:
                     p_check_weight_4 = p_check_weight_4 << 2
                 elif p_temp == self._dimension - 1:
                     p_temp = 0
-            else:  # weight-2 X-type stabilizers
-                self._stabilizers["x"].append(p_check_weight_2)
+            else:  # weight-2 X-type parity checks
+                self._parity_checks["x"].append(p_check_weight_2)
                 if p == ((self._dimension - 1) / 2) - 1:
                     p_check_weight_2 = \
                         p_check_weight_2 << ((self._dimension - 1)**2 + 1)
@@ -144,7 +144,7 @@ class RPlanarCode(AbstractSurfaceCode):
         for d in range(self._dimension**2):
             if d > 0 and d % self._dimension == 0:
                 str_code += "\n"
-                if z < self._num_stabilizer_qubits:
+                if z < self._num_parity_check_qubits:
                     if not even_row:
                         str_code += "{:>8}".format("")
 
@@ -187,7 +187,7 @@ class RPlanarCode(AbstractSurfaceCode):
         str_code += "\n" + "{:>8}".format("")
 
         # last X qubits
-        for i in range(x, self._num_stabilizer_qubits):
+        for i in range(x, self._num_parity_check_qubits):
             if (1 << i) & x_syndrome:
                 str_code += "\033[92m"
             if not restrict_graph == "z":

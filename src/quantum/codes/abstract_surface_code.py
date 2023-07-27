@@ -6,48 +6,53 @@ from src.classical.helpers import convert_qubit_list_to_binary
 
 class AbstractSurfaceCode(ABC):
 
-    def __init__(self, dimension: int) -> None:
+    def __init__(self, width: int, length: int) -> None:
 
-        if dimension & 0 or dimension == 1:
-            raise ValueError("Dimension must be an odd number greater than 1!")
+        if width <= 1 or length <= 1:
+            raise ValueError("Each dimension must be greater than 1!")
 
-        self._dimension = dimension
+        self._width = width
+        self._length = length
 
-        self._stabilizers = {
+        self._parity_checks = {
             "x": [],
             "z": []
         }
 
-    def get_stabilizers(self, index: int = None, stabilizer_type: str = "z") -> int:
-        """Returns the stabilizer of specified type in terms of the
+    def get_parity_checks(
+        self,
+        index: int = None,
+        parity_check_type: str = "z"
+    ) -> int:
+        """Returns the parity check of specified type (x or z) in terms of the
         adjacent data qubit indexes; the result is a binary string where the
         data qubit indexes are marked 1. If index not provided, provides list
-        of all the stabilizers of the given type.
+        of all the parity checks of the given type.
 
         Parameters
         ----------
         index : int, by default None
-            stabilizer index as defined by the code layout
-        stabilizer_type : str, optional
-            the type of stabilizer required, by default "z"
+            parity check index as defined by the code layout
+        parity_check_type : str, optional
+            the type of parity check required ("x" or "z"), by default "z"
 
         Returns
         -------
         int
-            binary string specifying the data qubits of the stabilizer
+            binary string specifying data qubits involved in the parity check
 
         Raises
         ------
         ValueError
-            raise for incorrectly given stabilizer_type
+            raise for incorrectly given parity_check_type
         """
 
-        if stabilizer_type not in self._stabilizers.keys():
-            raise ValueError("Stabilizer type must be either 'x' or 'z'!")
+        if parity_check_type not in self._parity_checks.keys():
+            raise ValueError("Parity check type must be either 'x' or 'z'!")
 
         if index is None:
-            return self._stabilizers[stabilizer_type]
-        return self._stabilizers[stabilizer_type][index]
+            return self._parity_checks[parity_check_type]
+        return self._parity_checks[parity_check_type][index]
 
     def generate_syndrome(
         self, error_string: Union[int, List[int]],
@@ -70,8 +75,8 @@ class AbstractSurfaceCode(ABC):
             type of error the error string represents, by default "x"
         show_all_adjacent : bool, optional
             flag to specify whether to override the modulo 2 addition of
-            stabilizers so that adjacent errors do not cancel (useful for
-            situations where knowing all adjacent stabilizer qubits are, e.g.
+            parity checks so that adjacent errors do not cancel (useful for
+            situations where knowing all adjacent parity check qubits are, e.g.
             for growing clusters), by default False
 
         Returns
@@ -89,9 +94,9 @@ class AbstractSurfaceCode(ABC):
 
         # build the syndrome string
         syndrome = 0
-        for i, stabilizer in enumerate(self._stabilizers[syndrome_type]):
+        for i, parity_check in enumerate(self._parity_checks[syndrome_type]):
             res = 0
-            par = stabilizer & error_string
+            par = parity_check & error_string
             while par:
                 if show_all_adjacent:
                     res = 1
@@ -127,7 +132,7 @@ class AbstractSurfaceCode(ABC):
         z_syndrome_string : Union[int, List[int]], optional
             binary representation of z syndrome qubits to mark, by default 0
         restrict_graph : str, optional
-            restrict the diagram to x or z stabilizers, if required,
+            restrict the diagram to x- or z- type parity checks, if required,
             by default None
         """
         pass

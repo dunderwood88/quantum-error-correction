@@ -7,13 +7,13 @@ from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 class ToricCode(AbstractSurfaceCode):
     """Rotated Planar surface code, defined as coordinates over:
         D: data qubits
-        X: X-type stabilizer qubits
-        Z: Z-type stabilizer qubits
+        X: X-type parity check qubits
+        Z: Z-type parity check qubits
     Indices run from left-to-right, top-to-bottom, for all qubit types.
 
     Example for dimension = 3
 
-    Z stabilizers:
+    Z parity checks:
         D0      D1      D2
     D3  Z0  D4  Z1  D5  Z2  D3
         D6      D7      D8
@@ -22,7 +22,7 @@ class ToricCode(AbstractSurfaceCode):
     D15 Z6  D16 Z7  D17 Z8  D15
         D0      D1      D2
 
-    X stabilizers:
+    X parity checks:
     X0  D0  X1  D1  X2  D2  X0
     D3      D4      D5      D3
     X3  D6  X4  D7  X5  D8  X3
@@ -31,7 +31,7 @@ class ToricCode(AbstractSurfaceCode):
     D15     D16     D17     D15
     X0  D0  X1  D1  X2  D2  X0
 
-    combined X and Z stabilizers:
+    combined X and Z parity checks:
     X0      D0      X1      D1      X2      D2      X0
     D3      Z0      D4      Z1      D5      Z2      D3
     X3      D6      X4      D7      X5      D8      X3
@@ -43,7 +43,7 @@ class ToricCode(AbstractSurfaceCode):
 
     Example for dimension = 5
 
-    Z stabilizers:
+    Z parity checks:
         D0      D1      D2      D3      D4
     D5  Z0  D6  Z1  D7  Z2  D8  Z3  D9  Z4  D5
         D10     D11     D12     D13     D14
@@ -56,7 +56,7 @@ class ToricCode(AbstractSurfaceCode):
     D45 Z20 D46 Z21 D47 Z22 D48 Z23 D49 Z24 D45
         D0      D1      D2      D3      D4
 
-    X stabilizers:
+    X parity checks:
     X0  D0  X1  D1  X2  D2  X3  D3  X4  D4  X0
     D5      D6      D7      D8      D9      D5
     X5  D10 X6  D11 X7  D12 X8  D13 X9  D14 X5
@@ -73,14 +73,14 @@ class ToricCode(AbstractSurfaceCode):
     def __init__(self, dimension: int) -> None:
         super().__init__(dimension)
 
-        self._num_stabilizer_qubits = dimension**2
+        self._num_parity_check_qubits = dimension**2
         self._name = f"D = {dimension} Toric Code"
 
-        # initial Z-type stabilizers
+        # initial Z-type parity checks
         p_check = (1 << (2 * self._dimension)) + (3 << self._dimension) + 1
 
         row = 0
-        for p in range(self._num_stabilizer_qubits):
+        for p in range(self._num_parity_check_qubits):
             p_save = p_check << (row * self._dimension)
 
             if (p + 1) % self._dimension == 0:
@@ -95,7 +95,7 @@ class ToricCode(AbstractSurfaceCode):
             if (p + 1) % self._dimension == 0:
                 row += 1
 
-            self._stabilizers["z"].append(p_save)
+            self._parity_checks["z"].append(p_save)
             p_check <<= 1
 
     def draw(

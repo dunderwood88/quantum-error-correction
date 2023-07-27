@@ -59,7 +59,7 @@ class PeriodicGridGraph(ToricCode):
         List[int]
             list of the edge indexes
         """
-        return convert_binary_to_qubit_list(self.get_stabilizers(index))
+        return convert_binary_to_qubit_list(self.get_parity_checks(index))
 
     def mark_vertices(self, edges: List[int]) -> List[int]:
         """Given a list of edges, marks adjecent vertices. Marking a vertex an
