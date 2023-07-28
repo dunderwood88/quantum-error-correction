@@ -1,4 +1,4 @@
-from src.classical.helpers import convert_qubit_list_to_binary
+from src.classical.helpers import convert_qubit_list_to_binary, convert_binary_to_qubit_list
 from src.quantum.codes.toric_code import ToricCode
 
 from src.classical.decoders.union_find.uf_functions import (
@@ -11,7 +11,11 @@ from src.classical.decoders.union_find.uf_functions import (
 ### -------------- ###
 
 ### --- D = 5  --- ###
-code = ToricCode(5)
+code = ToricCode(7, 5)
+
+for p in code.get_parity_checks():
+    print(convert_binary_to_qubit_list(p))
+
 x_error = [1, 14, 17]
 x_error = [1, 15]
 x_error = [1, 7, 12]
@@ -61,7 +65,7 @@ code.draw(
     x_data_string=x_error_bin,
     restrict_graph="z"
 )
-# exit()
+exit()
 
 # 2) grow clusters
 clusters, count = syndrome_validation_naive(error_syn, code)
@@ -91,6 +95,5 @@ print(spanning_trees)
 print()
 
 # 4) peeling stage to find corrections
-for root, tree in spanning_trees.items():
-    print(tree_peeler(list(tree.values())))
-    print()
+corrections = tree_peeler(spanning_trees, error_syn)
+print(corrections)

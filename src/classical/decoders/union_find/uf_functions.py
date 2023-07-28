@@ -88,54 +88,57 @@ def syndrome_validation_naive(
     count = 0  # counter for total number of growh steps
 
     while syndrome_string > 0:
-        for stabilizer_index, stabilizer in enumerate(
-            code.get_stabilizers(stabilizer_type=syndrome_type)
+        for parity_check_index, parity_check in enumerate(
+            code.get_parity_checks(parity_check_type=syndrome_type)
         ):  # while there are odd clusters
-            if (syn & 1) and stabilizer_index not in even_clusters:
+            if (syn & 1) and parity_check_index not in even_clusters:
                 if not full_step:  # grow by a half step
                     data_tree, syndrome_tree = odd_clusters.get(
-                        stabilizer_index, (0, 0)
+                        parity_check_index, (0, 0)
                     )
                     if first_step:
-                        data_tree |= stabilizer
+                        data_tree |= parity_check
                     else:
                         for stab in convert_binary_to_qubit_list(syndrome_tree):
-                            data_tree |= code.get_stabilizers(
+                            data_tree |= code.get_parity_checks(
                                 stab, syndrome_type)
-                    odd_clusters[stabilizer_index] = (data_tree, syndrome_tree)
+                    odd_clusters[parity_check_index] = (data_tree, syndrome_tree)
                 else:
-                    data_tree, syndrome_tree = odd_clusters[stabilizer_index]
+                    data_tree, syndrome_tree = odd_clusters[parity_check_index]
                     update_syndrome = code.generate_syndrome(
                         data_tree, show_all_adjacent=True
                     )
-                    odd_clusters[stabilizer_index] = (
+                    odd_clusters[parity_check_index] = (
                         data_tree, syndrome_tree | update_syndrome
                     )
                     first_step = 0
 
-                root_merge = 0  # if cluster meets another...
+                root_merge = None  # if cluster meets another...
                 for root, trees in odd_clusters.items():
-                    if root != stabilizer_index:
+                    if root != parity_check_index:
                         if bin(
-                            odd_clusters[stabilizer_index][full_step] &
+                            odd_clusters[parity_check_index][full_step] &
                             trees[full_step]
                         ).count("1") >= 1:
                             root_merge = root
-                        break
+                            break
 
-                if root_merge:  # ...fuse and remove from odd cluster list
-                    data_tree, syndrome_tree = odd_clusters[root_merge]
+                if root_merge is not None:  # ...fuse and remove from odd cluster list
+                    root_data_tree, root_syndrome_tree = odd_clusters[root_merge]
+                    other_data_tree, other_syndrome_tree = odd_clusters[parity_check_index]
+
                     even_clusters[root_merge] = (
-                        odd_clusters[stabilizer_index][0] | data_tree,
-                        syndrome_tree
-                        | odd_clusters[stabilizer_index][1]
-                        | (1 << stabilizer_index)
+                        other_data_tree | root_data_tree,
+                        other_syndrome_tree | root_syndrome_tree
+                        | (1 << parity_check_index)
                         | (1 << root_merge)
                     )
-                    del odd_clusters[stabilizer_index]
+
+                    del odd_clusters[parity_check_index]
                     del odd_clusters[root_merge]
+
                     syndrome_string &= ~(
-                        (1 << stabilizer_index) | (1 << root_merge)
+                        (1 << parity_check_index) | (1 << root_merge)
                     )
 
             syn >>= 1
@@ -202,8 +205,8 @@ def generate_spanning_trees(
             if current_node[0] in visited:
                 continue
 
-            # get the data qubits of the stabilizer
-            stab = code.get_stabilizers(
+            # get the data qubits associated with the parity check
+            stab = code.get_parity_checks(
                 current_node[0], original_syndrome_type)
 
             # find adjacent nodes that are part of the syndrome
@@ -212,10 +215,10 @@ def generate_spanning_trees(
                     n,
                     current_node[0],
                     convert_binary_to_qubit_list(
-                        stab & code.get_stabilizers(n, original_syndrome_type)
+                        stab & code.get_parity_checks(n, original_syndrome_type)
                     )[0]
                 ) for n in convert_binary_to_qubit_list(
-                    code.generate_syndrome(stab)
+                    code.generate_syndrome(stab & data_qubits)
                 ) if n in syn_list
             ]
 
@@ -223,36 +226,39 @@ def generate_spanning_trees(
             stack.extend(neighbours)
 
             visited[current_node[0]] = [
-                current_node[2],  # edge
-                1 if (1 << current_node[1]) & syn else 0,
-                1 if (1 << current_node[0]) & syn else 0
+                current_node[1],
+                current_node[0],
+                current_node[2]  # edge
 
             ] if len(current_node) > 1 else None
 
-        spanning_trees[root] = visited
+        spanning_trees[root] = list(visited.values())
         syn ^= syndrome_qubits
 
     return spanning_trees
 
 
-def tree_peeler(spanning_tree):
+def tree_peeler(spanning_trees, original_syndrome):
 
-    corrections = []
+    if isinstance(original_syndrome, List):
+        original_syndrome = convert_qubit_list_to_binary(original_syndrome)
 
-    flip = False
-    while spanning_tree:
+    corrections = {}
+    syn = original_syndrome
 
-        edge = spanning_tree.pop()
+    for root, spanning_tree in spanning_trees.items():
 
-        if edge is None:
-            break
+        corrections[root] = []
 
-        edge[2] ^= flip
+        while spanning_tree:
 
-        if edge[2] == 1:
-            flip = True
-            corrections.append(edge[0])
-        else:
-            flip = False
+            edge = spanning_tree.pop()
+
+            if not edge:
+                break
+
+            if (1 << edge[1]) & syn:
+                corrections[root].append(edge[2])
+                syn ^= (1 << edge[1]) | (1 << edge[0])
 
     return corrections
