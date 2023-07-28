@@ -5,7 +5,7 @@ from src.quantum.codes.toric_code import ToricCode
 
 
 class PeriodicGridGraph(ToricCode):
-    """Implements a graph of vertices and edges of a certain dimension which
+    """Implements a graph of vertices and edges of a given width x length which
     has periodic boundary conditions - left/right and top/bottom edges are
     identical.
     Provides a simplified interface to the Toric Code which helps describe the
@@ -16,7 +16,7 @@ class PeriodicGridGraph(ToricCode):
         V: vertices
     Indices run from left-to-right, top-to-bottom, for both edges/vertices.
 
-    Example for dimension = 5
+    Example for dimension = 5x5
 
         e0      e1      e2      e3      e4
 
@@ -42,9 +42,10 @@ class PeriodicGridGraph(ToricCode):
 
     """
 
-    def __init__(self, dimension: int) -> None:
-        super().__init__(dimension)
-        self._name = f"D = {dimension} repeating graph"
+    def __init__(self, width: int, length: int) -> None:
+        super().__init__(width, length)
+
+        self._name = f"D = {width}x{length} repeating graph"
 
     def get_neighbour_edges(self, index: int) -> List[int]:
         """Gets the neighbouring edges for a given vertex index.

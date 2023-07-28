@@ -1,5 +1,6 @@
 import math
 from typing import List, Union
+from warnings import warn
 
 from src.classical.helpers import convert_qubit_list_to_binary
 from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
@@ -41,11 +42,15 @@ class RPlanarCode(AbstractSurfaceCode):
 
     """
 
-    def __init__(self, dimension: int) -> None:
-        super().__init__(dimension)
+    def __init__(self, width: int, length: int) -> None:
+        super().__init__(width, length)
 
-        self._num_parity_check_qubits = int((dimension**2 - 1) / 2)
-        self._name = f"D = {dimension} Rotated Planar Surface Code"
+        if width != length:
+            raise ValueError("Width and length must be the same (for now)!")
+
+        self._dimension = width
+        self._num_parity_check_qubits = int((self._dimension**2 - 1) / 2)
+        self._name = f"D = {self._dimension} Rotated Planar Surface Code"
 
         # initial Z-type parity checks
         p_check_weight_2 = (1 << self._dimension) + 1

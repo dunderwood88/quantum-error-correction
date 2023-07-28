@@ -11,7 +11,7 @@ class ToricCode(AbstractSurfaceCode):
         Z: Z-type parity check qubits
     Indices run from left-to-right, top-to-bottom, for all qubit types.
 
-    Example for dimension = 3
+    Example for dimension = 3x3
 
     Z parity checks:
         D0      D1      D2
@@ -41,7 +41,7 @@ class ToricCode(AbstractSurfaceCode):
     X0      D0      X1      D1      X2      D2      X0
 
 
-    Example for dimension = 5
+    Example for dimension = 5x5
 
     Z parity checks:
         D0      D1      D2      D3      D4
@@ -70,33 +70,53 @@ class ToricCode(AbstractSurfaceCode):
     X0  D0  X1  D1  X2  D2  X3  D3  X4  D4  X0
     """
 
-    def __init__(self, dimension: int) -> None:
-        super().__init__(dimension)
+    def __init__(self, width: int, length: int) -> None:
+        super().__init__(width, length)
 
-        self._num_parity_check_qubits = dimension**2
-        self._name = f"D = {dimension} Toric Code"
+        self._num_parity_check_qubits = self._width * self._length
+        self._name = f"{self._width}x{self._length} Toric Code"
 
-        # initial Z-type parity checks
-        p_check = (1 << (2 * self._dimension)) + (3 << self._dimension) + 1
+        # initial Z-type parity check
+        p_check = (1 << (2 * self._width)) + (3 << self._width) + 1
 
-        row = 0
         for p in range(self._num_parity_check_qubits):
-            p_save = p_check << (row * self._dimension)
+            row = p // self._width
+            p_save = p_check << (row * self._width)
 
-            if (p + 1) % self._dimension == 0:
-                p_save ^= ((1 << (2 * self._dimension)) +
-                           (1 << self._dimension)) << (row * 2 * self._dimension)
+            if (p + 1) % self._width == 0:
+                p_save ^= ((1 << (2 * self._width)) +
+                           (1 << self._width)) << (row * 2 * self._width)
 
-            if row == self._dimension - 1:
-                mask = (1 << (2 * self._dimension ** 2)) - 1
+            if row == self._length - 1:
+                mask = (1 << (2 * self._num_parity_check_qubits)) - 1
                 p_save &= mask
-                p_save += 1 << (p % self._dimension)
-
-            if (p + 1) % self._dimension == 0:
-                row += 1
+                p_save += 1 << (p % self._width)
 
             self._parity_checks["z"].append(p_save)
             p_check <<= 1
+
+        # final X-type parity check (generate in reverse)
+        final_index = (2 * self._num_parity_check_qubits) - 1
+        p_check = (1 << final_index) + \
+                  ((1 << final_index) >> (2 * self._width)) + \
+                  ((3 << final_index - 1) >> self._width) \
+
+        for p in range(self._num_parity_check_qubits):
+            row = p // self._width
+            p_save = p_check >> (row * self._width)
+
+            if (p + 1) % self._width == 0:
+                p_save ^= (1 << (final_index - self._width)) + \
+                          ((1 << final_index) >> (2 * self._width))
+
+                if p != ((self._num_parity_check_qubits) - 1):
+                    final_index -= (2 * self._width)
+
+            if row == self._length - 1:
+                p_save |= (1 << ((2 * self._num_parity_check_qubits) - 1 - (p % self._width)))
+
+            self._parity_checks["x"].insert(0, p_save)
+            p_check >>= 1
 
     def draw(
         self,
@@ -140,7 +160,7 @@ class ToricCode(AbstractSurfaceCode):
         str_code_d = ""
 
         row = 0
-        for d in range(2 * self._dimension**2):
+        for d in range(2 * self._num_parity_check_qubits):
 
             has_x_error = (1 << d) & x_data_string
             has_z_error = (1 << d) & z_data_string
@@ -163,9 +183,9 @@ class ToricCode(AbstractSurfaceCode):
                     "{:<7}".format(d) + "\033[0m"
 
                 x += 1
-                if (d + 1) % self._dimension == 0:
+                if (d + 1) % self._width == 0:
                     if not restrict_graph == "z":
-                        str_code += "X" + "{:<7}".format(x - self._dimension)
+                        str_code += "X" + "{:<7}".format(x - self._width)
                     str_code += "\n\n\n"
                     if row == 0:
                         final_row = str_code
@@ -184,12 +204,12 @@ class ToricCode(AbstractSurfaceCode):
                         "{:<7}".format(z) + "\033[0m"
                     z += 1
 
-                if (d + 1) % self._dimension == 0:
+                if (d + 1) % self._width == 0:
 
                     has_x_error = (
-                        1 << (d - self._dimension + 1)) & x_data_string
+                        1 << (d - self._width + 1)) & x_data_string
                     has_z_error = (
-                        1 << (d - self._dimension + 1)) & z_data_string
+                        1 << (d - self._width + 1)) & z_data_string
 
                     if has_x_error and has_z_error:
                         str_code_d = "\033[95m"
@@ -201,7 +221,7 @@ class ToricCode(AbstractSurfaceCode):
                         str_code_d = ""
 
                     str_code += str_code_d + data_label + \
-                        "{:<7}".format(d - self._dimension + 1) + \
+                        "{:<7}".format(d - self._width + 1) + \
                         "\033[0m" + "\n\n\n"
                     row += 1
 
