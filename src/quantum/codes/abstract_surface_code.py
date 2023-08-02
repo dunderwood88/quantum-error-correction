@@ -13,6 +13,8 @@ class AbstractSurfaceCode(ABC):
 
         self._width = width
         self._length = length
+        self._set_num_parity_check_qubits()
+        self._set_num_data_qubits()
 
         self._parity_checks = {
             "x": [],
@@ -107,6 +109,27 @@ class AbstractSurfaceCode(ABC):
             syndrome += res << i
 
         return syndrome
+
+    @abstractmethod
+    def _set_num_parity_check_qubits(self):
+        """Method to initialise the number of parity check qubits for the given
+        code.
+        """
+        pass
+
+    @property
+    def num_parity_check_qubits(self):
+        return self._num_parity_check_qubits
+
+    @abstractmethod
+    def _set_num_data_qubits(self):
+        """Method to initialise the number of data qubits for the given code.
+        """
+        pass
+
+    @property
+    def num_data_qubits(self):
+        return self._num_data_qubits
 
     @abstractmethod
     def draw(

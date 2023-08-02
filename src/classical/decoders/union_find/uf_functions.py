@@ -83,6 +83,7 @@ def syndrome_validation_naive(
         syndrome_string = convert_qubit_list_to_binary(syndrome_string)
 
     syn = syndrome_string
+    error_type = next(s for s in ["x", "z"] if s != syndrome_type)
     full_step = 0  # start with a half step
     first_step = 1  # flag to indicate the initial full step growth
     count = 0  # counter for total number of growh steps
@@ -106,7 +107,7 @@ def syndrome_validation_naive(
                 else:
                     data_tree, syndrome_tree = odd_clusters[parity_check_index]
                     update_syndrome = code.generate_syndrome(
-                        data_tree, show_all_adjacent=True
+                        data_tree, error_type, show_all_adjacent=True
                     )
                     odd_clusters[parity_check_index] = (
                         data_tree, syndrome_tree | update_syndrome
@@ -170,13 +171,13 @@ def generate_spanning_trees(
         as edges/vertices within the cluster (syndrome and data qubits)
     original_syndrome : int
         the original syndrome that gave rise to the clusters
-    original_syndrome_type : int
+    original_syndrome_type : str
         the type (x or z) of the original syndrome
 
     Returns
     -------
     Dict[int, Dict[int, List[int]]]
-        an dictionary of original cluster root syndrome qubits mapped to 
+        an dictionary of original cluster root syndrome qubits mapped to
         directed spanning tree data which itself is a dictionary mapping
         visited syndrome qubit indexes to spanning tree edge data
     """
@@ -187,6 +188,7 @@ def generate_spanning_trees(
         original_syndrome = convert_qubit_list_to_binary(original_syndrome)
 
     syn = original_syndrome
+    error_type = next(s for s in ["x", "z"] if s != original_syndrome_type)
 
     # for each cluster, find the spanning tree
     for root, (data_qubits, syndrome_qubits) in clusters.items():
@@ -218,7 +220,7 @@ def generate_spanning_trees(
                         stab & code.get_parity_checks(n, original_syndrome_type)
                     )[0]
                 ) for n in convert_binary_to_qubit_list(
-                    code.generate_syndrome(stab & data_qubits)
+                    code.generate_syndrome(stab & data_qubits, error_type)
                 ) if n in syn_list
             ]
 

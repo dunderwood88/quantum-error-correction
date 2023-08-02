@@ -1,5 +1,7 @@
 from typing import List, Union
 
+import numpy as np
+
 from src.classical.helpers import convert_qubit_list_to_binary
 from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 
@@ -73,7 +75,6 @@ class ToricCode(AbstractSurfaceCode):
     def __init__(self, width: int, length: int) -> None:
         super().__init__(width, length)
 
-        self._num_parity_check_qubits = self._width * self._length
         self._name = f"{self._width}x{self._length} Toric Code"
 
         # initial Z-type parity check
@@ -118,6 +119,53 @@ class ToricCode(AbstractSurfaceCode):
             self._parity_checks["x"].insert(0, p_save)
             p_check >>= 1
 
+        self._parity_check_matrices = {
+            "x": None,
+            "z": None
+        }
+
+    def get_parity_check_matrices(self, check_type: str = "x") -> np.ndarray:
+        """Returns either the x- or z-type parity check matrices for the code
+        in the form of a numpy array.
+
+        Each row represents a parity check qubit:
+            - x-type = measure-X qubit / Z-stabilizer / face
+            - z-type = measure-Z qubit / X-stabilizer / vertex
+        Each column represents a data qubit.
+
+        Parameters
+        ----------
+        check_type : str, optional
+            the type of parity check matrix to return (x or z), by default "x"
+
+        Returns
+        -------
+        np.ndarray
+            the parity check matrix for the given parity check type (x or z)
+        """
+
+        if self._parity_check_matrices[check_type]:
+            return self._parity_check_matrices[check_type]
+        else:
+            self._parity_check_matrices[check_type] = np.zeros(
+                (self._num_parity_check_qubits, self._num_data_qubits),
+                dtype=np.uint8
+            )
+            for row, parity_check in enumerate(self._parity_checks[check_type]):
+                p = parity_check
+                for column in range(self._num_data_qubits):
+                    if p & 1:
+                        self._parity_check_matrices[check_type][row, column] = 1
+                    p >>= 1
+
+        return self._parity_check_matrices[check_type]
+
+    def _set_num_parity_check_qubits(self):
+        self._num_parity_check_qubits = self._width * self._length
+
+    def _set_num_data_qubits(self):
+        self._num_data_qubits = 2 * (self._width * self._length)
+
     def draw(
         self,
         x_data_string: Union[int, List[int]] = 0,
@@ -133,6 +181,7 @@ class ToricCode(AbstractSurfaceCode):
             data_label = "e"
         else:
             z_syndrome_label = "Z"
+            x_syndrome_label = "X"
             data_label = "D"
 
         x_syndrome = 0
@@ -152,6 +201,13 @@ class ToricCode(AbstractSurfaceCode):
                     z_syndrome_string
                 )
             z_syndrome = z_syndrome_string
+
+        if x_syndrome_string:
+            if isinstance(x_syndrome_string, List):
+                x_syndrome_string = convert_qubit_list_to_binary(
+                    x_syndrome_string
+                )
+            x_syndrome = x_syndrome_string
 
         x = 0
         z = 0
@@ -174,37 +230,54 @@ class ToricCode(AbstractSurfaceCode):
             else:
                 str_code_d = ""
 
-            if row % 2 == 0:
-                if not restrict_graph == "z":
-                    str_code += "X" + "{:<7}".format(x)
+            if row % 2 == 0:  # X-syndromes only
+
+                if not restrict_graph == "z":  # show X-syndromes if wanted
+                    if (1 << x) & x_syndrome:
+                        str_code += "\033[92m"
+                    str_code += x_syndrome_label + \
+                        "{:<7}".format(x) + "\033[0m"
+
                 else:
                     str_code += "{:<8}".format("")
+
                 str_code += str_code_d + data_label + \
                     "{:<7}".format(d) + "\033[0m"
 
                 x += 1
-                if (d + 1) % self._width == 0:
-                    if not restrict_graph == "z":
-                        str_code += "X" + "{:<7}".format(x - self._width)
-                    str_code += "\n\n\n"
-                    if row == 0:
-                        final_row = str_code
 
+                if (d + 1) % self._width == 0:  # if final column
+
+                    if not restrict_graph == "z":
+                        if (1 << x - self._width) & x_syndrome:
+                            str_code += "\033[92m"
+                        str_code += x_syndrome_label + "{:<7}".format(
+                            x - self._width
+                        )  # final column == first column
+
+                    str_code += "\033[0m\n\n\n"
+
+                    if row == 0:
+                        final_row = str_code  # final row == first row
                     row += 1
 
-            else:
+            else:  # Z-syndromes only
+
                 str_code += str_code_d + data_label + "{:<7}".format(d)
                 str_code += "\033[0m"
-                if not restrict_graph == "x":
 
+                if not restrict_graph == "x":  # show Z-syndromes if wanted
                     if (1 << z) & z_syndrome:
                         str_code += "\033[93m"
-
                     str_code += z_syndrome_label + \
                         "{:<7}".format(z) + "\033[0m"
-                    z += 1
 
-                if (d + 1) % self._width == 0:
+                else:
+                    str_code += "{:<8}".format("")
+
+                z += 1
+
+                if (d + 1) % self._width == 0:  # if final column
 
                     has_x_error = (
                         1 << (d - self._width + 1)) & x_data_string
@@ -228,14 +301,14 @@ class ToricCode(AbstractSurfaceCode):
         str_code += final_row
 
         print()
-        print(str_code)
-        print()
         print(self._name)
+        print()
+        print(str_code)
         print()
         if "simplify" not in kwargs:
             print("\033[91mX errors")
             print("\033[94mZ errors")
-            print("\033[95mXZ errors")
+            # print("\033[95mXZ errors")
             print("\033[92mX syndrome")
             print("\033[93mZ syndrome\033[0m")
             print()
