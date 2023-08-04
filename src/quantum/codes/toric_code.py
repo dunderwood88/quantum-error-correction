@@ -1,6 +1,7 @@
 from typing import List, Union
 
 import numpy as np
+from termcolor import colored
 
 from src.classical.helpers import convert_qubit_list_to_binary
 from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
@@ -179,14 +180,6 @@ class ToricCode(AbstractSurfaceCode):
         **kwargs
     ) -> None:
 
-        if "simplify" in kwargs:
-            z_syndrome_label = "\033[1m" + "V"
-            data_label = "e"
-        else:
-            z_syndrome_label = "Z"
-            x_syndrome_label = "X"
-            data_label = "D"
-
         x_syndrome = 0
         z_syndrome = 0
         if x_data_string:
@@ -212,12 +205,24 @@ class ToricCode(AbstractSurfaceCode):
                 )
             x_syndrome = x_syndrome_string
 
+        # set up styling
+        if "simplify" in kwargs:
+            z_syndrome_label = "V"
+            data_label = "E"
+        else:
+            z_syndrome_label = "Z"
+            x_syndrome_label = "X"
+            data_label = "D"
+
+        str_code = colored("{:<7}".format(""), on_color="on_black")
+        str_padding = str_code + colored(
+            ((2 * self._width) + 1) * "{:<8}".format(""), on_color="on_black"
+        ) + "\n"
+        str_final_row = ""
+
+        # draw the graph
         x = 0
         z = 0
-        str_code = ""
-        final_row = ""
-        str_code_d = ""
-
         row = 0
         for d in range(2 * self._num_parity_check_qubits):
 
@@ -225,93 +230,120 @@ class ToricCode(AbstractSurfaceCode):
             has_z_error = (1 << d) & z_data_string
 
             if has_x_error and has_z_error:
-                str_code_d = "\033[95m"
+                d_color = "magenta"
             elif has_x_error:
-                str_code_d = "\033[91m"
+                d_color = "red"
             elif has_z_error:
-                str_code_d = "\033[94m"
+                d_color = "blue"
             else:
-                str_code_d = ""
+                d_color = "light_grey"
 
-            if row % 2 == 0:  # X-syndromes only
+            if row % 2 == 0:  # X-syndromes only (even rows)
 
+                # 1) X-syndrome qubit
+                x_color = "dark_grey"
+                x_style = []
                 if not restrict_graph == "z":  # show X-syndromes if wanted
                     if (1 << x) & x_syndrome:
-                        str_code += "\033[92m"
-                    str_code += x_syndrome_label + \
-                        "{:<7}".format(x) + "\033[0m"
+                        x_color = "green"
+                        x_style.append("bold")
+
+                    str_qubit = colored(
+                        x_syndrome_label + "{:<7}".format(x),
+                        color=x_color,
+                        attrs=x_style,
+                        on_color="on_black"
+                    )
 
                 else:
-                    str_code += "{:<8}".format("")
+                    str_qubit = colored(
+                        "{:<8}".format(""), on_color="on_black"
+                    )
 
-                str_code += str_code_d + data_label + \
-                    "{:<7}".format(d) + "\033[0m"
+                str_code += str_qubit
+                if d == (row * self._width):
+                    str_final_qubit = str_qubit
+
+                # 2) data qubit
+                str_code += colored(
+                    data_label + "{:<7}".format(d),
+                    color=d_color,
+                    on_color="on_black"
+                )
+
+                # 3) deal with final column
+                if (d + 1) % self._width == 0:  # if final column
+
+                    str_code += str_final_qubit
+
+                    if row == 0:
+                        str_final_row = str_code  # final row == first row
+                    row += 1
+
+                    str_code += "\n" + 2 * str_padding
+                    str_code += colored(
+                        "{:<7}".format(""), on_color="on_black"
+                    )
 
                 x += 1
 
-                if (d + 1) % self._width == 0:  # if final column
+            else:  # Z-syndromes only (odd rows)
 
-                    if not restrict_graph == "z":
-                        if (1 << x - self._width) & x_syndrome:
-                            str_code += "\033[92m"
-                        str_code += x_syndrome_label + "{:<7}".format(
-                            x - self._width
-                        )  # final column == first column
+                # 1) data qubit
+                str_qubit = colored(
+                    data_label + "{:<7}".format(d),
+                    color=d_color,
+                    on_color="on_black"
+                )
 
-                    str_code += "\033[0m\n\n\n"
+                str_code += str_qubit
 
-                    if row == 0:
-                        final_row = str_code  # final row == first row
-                    row += 1
+                if d == (row * self._width):
+                    str_final_qubit = str_qubit
 
-            else:  # Z-syndromes only
-
-                str_code += str_code_d + data_label + "{:<7}".format(d)
-                str_code += "\033[0m"
-
+                # 2) Z-syndrome qubit
+                z_color = "dark_grey"
+                z_style = []
                 if not restrict_graph == "x":  # show Z-syndromes if wanted
                     if (1 << z) & z_syndrome:
-                        str_code += "\033[93m"
-                    str_code += z_syndrome_label + \
-                        "{:<7}".format(z) + "\033[0m"
+                        z_color = "yellow"
+                        z_style.append("bold")
+
+                    str_code += colored(
+                        z_syndrome_label + "{:<7}".format(z),
+                        color=z_color,
+                        attrs=z_style,
+                        on_color="on_black"
+                    )
 
                 else:
-                    str_code += "{:<8}".format("")
+                    str_code += colored(
+                        "{:<8}".format(""), on_color="on_black"
+                    )
+
+                # 3) deal with final column
+                if (d + 1) % self._width == 0:  # if final column
+
+                    str_code += str_final_qubit
+                    str_code += "\n" + 2 * str_padding
+
+                    if row != ((2 * self._length) - 1):
+                        str_code += colored(
+                            "{:<7}".format(""), on_color="on_black"
+                        )
+                    row += 1
 
                 z += 1
 
-                if (d + 1) % self._width == 0:  # if final column
-
-                    has_x_error = (
-                        1 << (d - self._width + 1)) & x_data_string
-                    has_z_error = (
-                        1 << (d - self._width + 1)) & z_data_string
-
-                    if has_x_error and has_z_error:
-                        str_code_d = "\033[95m"
-                    elif has_x_error:
-                        str_code_d = "\033[91m"
-                    elif has_z_error:
-                        str_code_d = "\033[94m"
-                    else:
-                        str_code_d = ""
-
-                    str_code += str_code_d + data_label + \
-                        "{:<7}".format(d - self._width + 1) + \
-                        "\033[0m" + "\n\n\n"
-                    row += 1
-
-        str_code += final_row
+        str_code += str_final_row
 
         print()
-        print(self._name)
+        print(colored(self._name, attrs=["bold"]))
         print()
-        print(str_code)
-        print()
+        print(2 * str_padding + str_code + "\n" + 2 * str_padding)
+
         if "simplify" not in kwargs:
-            print("\033[91mX errors")
-            print("\033[94mZ errors")
-            print("\033[95mXZ errors")
-            print("\033[92mX syndrome")
-            print("\033[93mZ syndrome\033[0m")
+            print(colored("X errors", "red", attrs=["bold"]) + " - " + colored("Z syndrome", "yellow", attrs=["bold"]))
+            print(colored("Z errors", "blue", attrs=["bold"]) + " - " + colored("X syndrome", "green", attrs=["bold"]))
+            print(colored("XZ errors", "magenta", attrs=["bold"]))
             print()
