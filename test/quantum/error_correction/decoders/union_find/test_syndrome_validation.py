@@ -3,7 +3,7 @@ import unittest
 
 from src.classical.decoders.union_find.uf_functions import syndrome_validation_naive
 from src.classical.helpers import convert_qubit_list_to_binary
-from src.quantum.codes.rotated_planar_code import RPlanarCode
+from src.quantum.codes.toric_code import ToricCode
 
 
 class TestUnionFind(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestUnionFind(unittest.TestCase):
     def setUp(self) -> None:
 
         self._codes = {
-            "rotated planar": RPlanarCode
+            "toric": ToricCode
         }
 
         return super().setUp()
@@ -44,13 +44,13 @@ class TestUnionFind(unittest.TestCase):
                             )
                             uf_cluster = uf_clusters[expected_cluster["root"]]
                             self.assertEqual(
-                                uf_cluster[0], 
+                                uf_cluster[0],
                                 convert_qubit_list_to_binary(
                                     expected_cluster["data_qubits"]
                                 )
                             )
                             self.assertEqual(
-                                uf_cluster[1], 
+                                uf_cluster[1],
                                 convert_qubit_list_to_binary(
                                     expected_cluster["syndrome_qubits"]
                                 )
