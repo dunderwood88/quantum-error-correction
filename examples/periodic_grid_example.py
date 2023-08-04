@@ -1,6 +1,6 @@
 from src.classical.periodic_grid_graph import PeriodicGridGraph
 from src.classical.decoders.union_find.uf_functions import (
-    generate_spanning_trees, grow_clusters, tree_peeler)
+    generate_spanning_trees, grow_clusters, peel_spanning_trees)
 
 graph = PeriodicGridGraph(6)
 
@@ -15,5 +15,5 @@ graph.draw_graph(edges, marked_vertices)
 
 clusters, count = grow_clusters(marked_vertices, graph)
 spanning_trees = generate_spanning_trees(clusters, graph, marked_vertices)
-corrections = tree_peeler(spanning_trees, marked_vertices)
+corrections = peel_spanning_trees(spanning_trees, marked_vertices)
 print(corrections)
