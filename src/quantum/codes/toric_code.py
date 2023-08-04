@@ -1,5 +1,8 @@
 from typing import List, Union
 
+import numpy as np
+from termcolor import colored
+
 from src.classical.helpers import convert_qubit_list_to_binary
 from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 
@@ -7,13 +10,13 @@ from src.quantum.codes.abstract_surface_code import AbstractSurfaceCode
 class ToricCode(AbstractSurfaceCode):
     """Rotated Planar surface code, defined as coordinates over:
         D: data qubits
-        X: X-type stabilizer qubits
-        Z: Z-type stabilizer qubits
+        X: X-type parity check qubits
+        Z: Z-type parity check qubits
     Indices run from left-to-right, top-to-bottom, for all qubit types.
 
-    Example for dimension = 3
+    Example for dimension = 3x3
 
-    Z stabilizers:
+    Z parity checks:
         D0      D1      D2
     D3  Z0  D4  Z1  D5  Z2  D3
         D6      D7      D8
@@ -22,7 +25,7 @@ class ToricCode(AbstractSurfaceCode):
     D15 Z6  D16 Z7  D17 Z8  D15
         D0      D1      D2
 
-    X stabilizers:
+    X parity checks:
     X0  D0  X1  D1  X2  D2  X0
     D3      D4      D5      D3
     X3  D6  X4  D7  X5  D8  X3
@@ -31,7 +34,7 @@ class ToricCode(AbstractSurfaceCode):
     D15     D16     D17     D15
     X0  D0  X1  D1  X2  D2  X0
 
-    combined X and Z stabilizers:
+    combined X and Z parity checks:
     X0      D0      X1      D1      X2      D2      X0
     D3      Z0      D4      Z1      D5      Z2      D3
     X3      D6      X4      D7      X5      D8      X3
@@ -41,9 +44,9 @@ class ToricCode(AbstractSurfaceCode):
     X0      D0      X1      D1      X2      D2      X0
 
 
-    Example for dimension = 5
+    Example for dimension = 5x5
 
-    Z stabilizers:
+    Z parity checks:
         D0      D1      D2      D3      D4
     D5  Z0  D6  Z1  D7  Z2  D8  Z3  D9  Z4  D5
         D10     D11     D12     D13     D14
@@ -56,7 +59,7 @@ class ToricCode(AbstractSurfaceCode):
     D45 Z20 D46 Z21 D47 Z22 D48 Z23 D49 Z24 D45
         D0      D1      D2      D3      D4
 
-    X stabilizers:
+    X parity checks:
     X0  D0  X1  D1  X2  D2  X3  D3  X4  D4  X0
     D5      D6      D7      D8      D9      D5
     X5  D10 X6  D11 X7  D12 X8  D13 X9  D14 X5
@@ -70,33 +73,102 @@ class ToricCode(AbstractSurfaceCode):
     X0  D0  X1  D1  X2  D2  X3  D3  X4  D4  X0
     """
 
-    def __init__(self, dimension: int) -> None:
-        super().__init__(dimension)
+    def __init__(self, width: int, length: int) -> None:
+        super().__init__(width, length)
 
-        self._num_stabilizer_qubits = dimension**2
-        self._name = f"D = {dimension} Toric Code"
+        self._name = f"{self._width}x{self._length} Toric Code"
 
-        # initial Z-type stabilizers
-        p_check = (1 << (2 * self._dimension)) + (3 << self._dimension) + 1
+        # initial Z-type parity check
+        p_check = (1 << (2 * self._width)) + (3 << self._width) + 1
 
-        row = 0
-        for p in range(self._num_stabilizer_qubits):
-            p_save = p_check << (row * self._dimension)
+        for p in range(self._num_parity_check_qubits):
+            row = p // self._width
+            p_save = p_check << (row * self._width)
 
-            if (p + 1) % self._dimension == 0:
-                p_save ^= ((1 << (2 * self._dimension)) +
-                           (1 << self._dimension)) << (row * 2 * self._dimension)
+            if (p + 1) % self._width == 0:
+                p_save ^= ((1 << (2 * self._width)) +
+                           (1 << self._width)) << (row * 2 * self._width)
 
-            if row == self._dimension - 1:
-                mask = (1 << (2 * self._dimension ** 2)) - 1
+            if row == self._length - 1:
+                mask = (1 << (2 * self._num_parity_check_qubits)) - 1
                 p_save &= mask
-                p_save += 1 << (p % self._dimension)
+                p_save += 1 << (p % self._width)
 
-            if (p + 1) % self._dimension == 0:
-                row += 1
-
-            self._stabilizers["z"].append(p_save)
+            self._parity_checks["z"].append(p_save)
             p_check <<= 1
+
+        # final X-type parity check (generate in reverse)
+        final_index = (2 * self._num_parity_check_qubits) - 1
+        p_check = (1 << final_index) + \
+                  ((1 << final_index) >> (2 * self._width)) + \
+                  ((3 << final_index - 1) >> self._width) \
+
+        for p in range(self._num_parity_check_qubits):
+            row = p // self._width
+            p_save = p_check >> (row * self._width)
+
+            if (p + 1) % self._width == 0:
+                p_save ^= (1 << (final_index - self._width)) + \
+                          ((1 << final_index) >> (2 * self._width))
+
+                if p != ((self._num_parity_check_qubits) - 1):
+                    final_index -= (2 * self._width)
+
+            if row == self._length - 1:
+                p_save |= (
+                    1 << ((2 * self._num_parity_check_qubits) -
+                          1 - (p % self._width))
+                    )
+
+            self._parity_checks["x"].insert(0, p_save)
+            p_check >>= 1
+
+        self._parity_check_matrices = {
+            "x": None,
+            "z": None
+        }
+
+    def get_parity_check_matrices(self, check_type: str = "x") -> np.ndarray:
+        """Returns either the x- or z-type parity check matrices for the code
+        in the form of a numpy array.
+
+        Each row represents a parity check qubit:
+            - x-type = measure-X qubit / Z-stabilizer / face
+            - z-type = measure-Z qubit / X-stabilizer / vertex
+        Each column represents a data qubit.
+
+        Parameters
+        ----------
+        check_type : str, optional
+            the type of parity check matrix to return (x or z), by default "x"
+
+        Returns
+        -------
+        np.ndarray
+            the parity check matrix for the given parity check type (x or z)
+        """
+
+        if self._parity_check_matrices[check_type]:
+            return self._parity_check_matrices[check_type]
+        else:
+            self._parity_check_matrices[check_type] = np.zeros(
+                (self._num_parity_check_qubits, self._num_data_qubits),
+                dtype=np.uint8
+            )
+            for row, parity_check in enumerate(self._parity_checks[check_type]):
+                p = parity_check
+                for column in range(self._num_data_qubits):
+                    if p & 1:
+                        self._parity_check_matrices[check_type][row, column] = 1
+                    p >>= 1
+
+        return self._parity_check_matrices[check_type]
+
+    def _set_num_parity_check_qubits(self):
+        self._num_parity_check_qubits = self._width * self._length
+
+    def _set_num_data_qubits(self):
+        self._num_data_qubits = 2 * (self._width * self._length)
 
     def draw(
         self,
@@ -107,15 +179,6 @@ class ToricCode(AbstractSurfaceCode):
         restrict_graph: str = None,
         **kwargs
     ) -> None:
-
-        if "simplify" in kwargs:
-            z_syndrome_label = "\033[1m" + "V"
-            marked_syndrome_label = "\033[92m"
-            data_label = "e"
-        else:
-            z_syndrome_label = "Z"
-            marked_syndrome_label = "\033[93m"
-            data_label = "D"
 
         x_syndrome = 0
         z_syndrome = 0
@@ -135,89 +198,152 @@ class ToricCode(AbstractSurfaceCode):
                 )
             z_syndrome = z_syndrome_string
 
+        if x_syndrome_string:
+            if isinstance(x_syndrome_string, List):
+                x_syndrome_string = convert_qubit_list_to_binary(
+                    x_syndrome_string
+                )
+            x_syndrome = x_syndrome_string
+
+        # set up styling
+        if "simplify" in kwargs:
+            z_syndrome_label = "V"
+            data_label = "E"
+        else:
+            z_syndrome_label = "Z"
+            x_syndrome_label = "X"
+            data_label = "D"
+
+        str_code = colored("{:<7}".format(""), on_color="on_black")
+        str_padding = str_code + colored(
+            ((2 * self._width) + 1) * "{:<8}".format(""), on_color="on_black"
+        ) + "\n"
+        str_final_row = ""
+
+        # draw the graph
         x = 0
         z = 0
-        str_code = ""
-        final_row = ""
-        str_code_d = ""
-
         row = 0
-        for d in range(2 * self._dimension**2):
+        for d in range(2 * self._num_parity_check_qubits):
 
             has_x_error = (1 << d) & x_data_string
             has_z_error = (1 << d) & z_data_string
 
             if has_x_error and has_z_error:
-                str_code_d = "\033[95m"
+                d_color = "magenta"
             elif has_x_error:
-                str_code_d = "\033[91m"
+                d_color = "red"
             elif has_z_error:
-                str_code_d = "\033[94m"
+                d_color = "blue"
             else:
-                str_code_d = ""
+                d_color = "light_grey"
 
-            if row % 2 == 0:
-                if not restrict_graph == "z":
-                    str_code += "X" + "{:<7}".format(x)
+            if row % 2 == 0:  # X-syndromes only (even rows)
+
+                # 1) X-syndrome qubit
+                x_color = "dark_grey"
+                x_style = []
+                if not restrict_graph == "z":  # show X-syndromes if wanted
+                    if (1 << x) & x_syndrome:
+                        x_color = "green"
+                        x_style.append("bold")
+
+                    str_qubit = colored(
+                        x_syndrome_label + "{:<7}".format(x),
+                        color=x_color,
+                        attrs=x_style,
+                        on_color="on_black"
+                    )
+
                 else:
-                    str_code += "{:<8}".format("")
-                str_code += str_code_d + data_label + \
-                    "{:<7}".format(d) + "\033[0m"
+                    str_qubit = colored(
+                        "{:<8}".format(""), on_color="on_black"
+                    )
+
+                str_code += str_qubit
+                if d == (row * self._width):
+                    str_final_qubit = str_qubit
+
+                # 2) data qubit
+                str_code += colored(
+                    data_label + "{:<7}".format(d),
+                    color=d_color,
+                    on_color="on_black"
+                )
+
+                # 3) deal with final column
+                if (d + 1) % self._width == 0:  # if final column
+
+                    str_code += str_final_qubit
+
+                    if row == 0:
+                        str_final_row = str_code  # final row == first row
+                    row += 1
+
+                    str_code += "\n" + 2 * str_padding
+                    str_code += colored(
+                        "{:<7}".format(""), on_color="on_black"
+                    )
 
                 x += 1
-                if (d + 1) % self._dimension == 0:
-                    if not restrict_graph == "z":
-                        str_code += "X" + "{:<7}".format(x - self._dimension)
-                    str_code += "\n\n\n"
-                    if row == 0:
-                        final_row = str_code
 
-                    row += 1
+            else:  # Z-syndromes only (odd rows)
 
-            else:
-                str_code += str_code_d + data_label + "{:<7}".format(d)
-                str_code += "\033[0m"
-                if not restrict_graph == "x":
+                # 1) data qubit
+                str_qubit = colored(
+                    data_label + "{:<7}".format(d),
+                    color=d_color,
+                    on_color="on_black"
+                )
 
+                str_code += str_qubit
+
+                if d == (row * self._width):
+                    str_final_qubit = str_qubit
+
+                # 2) Z-syndrome qubit
+                z_color = "dark_grey"
+                z_style = []
+                if not restrict_graph == "x":  # show Z-syndromes if wanted
                     if (1 << z) & z_syndrome:
-                        str_code += marked_syndrome_label
+                        z_color = "yellow"
+                        z_style.append("bold")
 
-                    str_code += z_syndrome_label + \
-                        "{:<7}".format(z) + "\033[0m"
-                    z += 1
+                    str_code += colored(
+                        z_syndrome_label + "{:<7}".format(z),
+                        color=z_color,
+                        attrs=z_style,
+                        on_color="on_black"
+                    )
 
-                if (d + 1) % self._dimension == 0:
+                else:
+                    str_code += colored(
+                        "{:<8}".format(""), on_color="on_black"
+                    )
 
-                    has_x_error = (
-                        1 << (d - self._dimension + 1)) & x_data_string
-                    has_z_error = (
-                        1 << (d - self._dimension + 1)) & z_data_string
+                # 3) deal with final column
+                if (d + 1) % self._width == 0:  # if final column
 
-                    if has_x_error and has_z_error:
-                        str_code_d = "\033[95m"
-                    elif has_x_error:
-                        str_code_d = "\033[91m"
-                    elif has_z_error:
-                        str_code_d = "\033[94m"
-                    else:
-                        str_code_d = ""
+                    str_code += str_final_qubit
+                    str_code += "\n" + 2 * str_padding
 
-                    str_code += str_code_d + data_label + \
-                        "{:<7}".format(d - self._dimension + 1) + \
-                        "\033[0m" + "\n\n\n"
+                    if row != ((2 * self._length) - 1):
+                        str_code += colored(
+                            "{:<7}".format(""), on_color="on_black"
+                        )
                     row += 1
 
-        str_code += final_row
+                z += 1
+
+        str_code += str_final_row
 
         print()
-        print(str_code)
+        print(colored(self._name, attrs=["bold"]))
         print()
-        print(self._name)
-        print()
+        print(2 * str_padding + str_code + "\n" + 2 * str_padding)
+
         if "simplify" not in kwargs:
-            print("\033[91mX errors")
-            print("\033[94mZ errors")
-            print("\033[95mXZ errors")
-            print("\033[92mX syndrome")
-            print("\033[93mZ syndrome\033[0m")
+            print(colored("X errors", "red", attrs=["bold"]) + " - " + colored("Z syndrome", "yellow", attrs=["bold"]))
+            print(colored("Z errors", "blue", attrs=["bold"]) + " - " + colored("X syndrome", "green", attrs=["bold"]))
+            print(colored("XZ errors", "magenta", attrs=["bold"]))
             print()
