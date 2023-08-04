@@ -124,9 +124,14 @@ def syndrome_validation_naive(
                             root_merge = root
                             break
 
-                if root_merge is not None:  # ...fuse and remove from odd cluster list
-                    root_data_tree, root_syndrome_tree = odd_clusters[root_merge]
-                    other_data_tree, other_syndrome_tree = odd_clusters[parity_check_index]
+                # ...fuse and remove from odd cluster list
+                if root_merge is not None:
+                    root_data_tree, root_syndrome_tree = odd_clusters[
+                        root_merge]
+
+                    other_data_tree, other_syndrome_tree = odd_clusters[
+                        parity_check_index
+                    ]
 
                     even_clusters[root_merge] = (
                         other_data_tree | root_data_tree,
@@ -156,11 +161,16 @@ def syndrome_validation_naive(
 def generate_spanning_trees(
     clusters: Dict[int, Tuple[int, int]],
     code: AbstractSurfaceCode,
-    original_syndrome: int,
+    original_syndrome_string: Union[int, List[int]],
     original_syndrome_type: str = "z"
 ) -> Dict[int, List[int]]:
-    """Generates the spanning trees of the provided even clusters, defined over
-    a specific code and arising from a given original syndrome
+    """Generates the directed spanning trees of the provided even clusters,
+    defined over a specific code and arising from a given original syndrome.
+
+    Spanning tree is defined as the maximal subset of edges within a cluster
+    that contains no cycle and spans all the vertices of the cluster.
+
+    More details in: https://arxiv.org/pdf/1709.06218.pdf.
 
     Parameters
     ----------
@@ -169,7 +179,7 @@ def generate_spanning_trees(
     clusters : Dict[int, Tuple[int, int]]
         a dictionary of even clusters, with keys as cluster roots and values
         as edges/vertices within the cluster (syndrome and data qubits)
-    original_syndrome : int
+    original_syndrome_string : int
         the original syndrome that gave rise to the clusters
     original_syndrome_type : str
         the type (x or z) of the original syndrome
@@ -177,17 +187,18 @@ def generate_spanning_trees(
     Returns
     -------
     Dict[int, Dict[int, List[int]]]
-        an dictionary of original cluster root syndrome qubits mapped to
+        a dictionary of original cluster root syndrome qubits mapped to
         directed spanning tree data which itself is a dictionary mapping
         visited syndrome qubit indexes to spanning tree edge data
     """
 
     spanning_trees = {}
 
-    if isinstance(original_syndrome, List):
-        original_syndrome = convert_qubit_list_to_binary(original_syndrome)
+    if isinstance(original_syndrome_string, List):
+        original_syndrome_string = convert_qubit_list_to_binary(
+            original_syndrome_string
+        )
 
-    syn = original_syndrome
     error_type = next(s for s in ["x", "z"] if s != original_syndrome_type)
 
     # for each cluster, find the spanning tree
@@ -217,7 +228,9 @@ def generate_spanning_trees(
                     n,
                     current_node[0],
                     convert_binary_to_qubit_list(
-                        stab & code.get_parity_checks(n, original_syndrome_type)
+                        stab & code.get_parity_checks(
+                            n, original_syndrome_type
+                        )
                     )[0]
                 ) for n in convert_binary_to_qubit_list(
                     code.generate_syndrome(stab & data_qubits, error_type)
@@ -235,32 +248,56 @@ def generate_spanning_trees(
             ] if len(current_node) > 1 else None
 
         spanning_trees[root] = list(visited.values())
-        syn ^= syndrome_qubits
+        original_syndrome_string ^= syndrome_qubits
 
     return spanning_trees
 
 
-def tree_peeler(spanning_trees, original_syndrome):
+def peel_spanning_trees(
+    spanning_trees: Dict[int, Dict[int, List[int]]],
+    original_syndrome_string: Union[int, List[int]]
+) -> Dict[int, List[int]]:
+    """Applies the final "peeling" stage to the provided spanning trees.
+    For a given tree, start from a "leaf" edge (data qubit) and sequentially
+    remove edges from the tree, and add any edges within a syndrome chain to
+    the final list of data qubit corrections.
 
-    if isinstance(original_syndrome, List):
-        original_syndrome = convert_qubit_list_to_binary(original_syndrome)
+    More details in: https://arxiv.org/pdf/1709.06218.pdf.
+
+    Parameters
+    ----------
+    spanning_trees : Dict[int, Dict[int, List[int]]]
+        a dictionary of original cluster root syndrome qubits mapped to
+        directed spanning tree data which itself is a dictionary mapping
+        visited syndrome qubit indexes to spanning tree edge data
+    original_syndrome_string : Union[int, List[int]]
+        the original syndrome that gave rise to the clusters
+
+    Returns
+    -------
+    Dict[int, List[int]]
+        a dictionary of original cluster root syndrome qubits mapped to
+        a list of suggested data qubit corrections
+    """
+
+    if isinstance(original_syndrome_string, List):
+        original_syndrome_string = convert_qubit_list_to_binary(
+            original_syndrome_string
+        )
 
     corrections = {}
-    syn = original_syndrome
-
     for root, spanning_tree in spanning_trees.items():
 
         corrections[root] = []
 
         while spanning_tree:
-
             edge = spanning_tree.pop()
 
-            if not edge:
+            if not edge:  # we've reached the root, so we are done
                 break
 
-            if (1 << edge[1]) & syn:
+            if (1 << edge[1]) & original_syndrome_string:
                 corrections[root].append(edge[2])
-                syn ^= (1 << edge[1]) | (1 << edge[0])
+                original_syndrome_string ^= (1 << edge[1]) | (1 << edge[0])
 
     return corrections

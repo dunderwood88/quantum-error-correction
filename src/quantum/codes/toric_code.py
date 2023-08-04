@@ -114,7 +114,10 @@ class ToricCode(AbstractSurfaceCode):
                     final_index -= (2 * self._width)
 
             if row == self._length - 1:
-                p_save |= (1 << ((2 * self._num_parity_check_qubits) - 1 - (p % self._width)))
+                p_save |= (
+                    1 << ((2 * self._num_parity_check_qubits) -
+                          1 - (p % self._width))
+                    )
 
             self._parity_checks["x"].insert(0, p_save)
             p_check >>= 1
@@ -308,7 +311,7 @@ class ToricCode(AbstractSurfaceCode):
         if "simplify" not in kwargs:
             print("\033[91mX errors")
             print("\033[94mZ errors")
-            # print("\033[95mXZ errors")
+            print("\033[95mXZ errors")
             print("\033[92mX syndrome")
             print("\033[93mZ syndrome\033[0m")
             print()

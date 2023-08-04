@@ -2,7 +2,7 @@ from src.classical.helpers import convert_qubit_list_to_binary
 from src.quantum.codes.toric_code import ToricCode
 
 from src.classical.decoders.union_find.uf_functions import (
-    generate_spanning_trees, syndrome_validation_naive, tree_peeler)
+    generate_spanning_trees, syndrome_validation_naive, peel_spanning_trees)
 
 
 ### --- D = 5x7  --- ###
@@ -12,7 +12,7 @@ error, error_type = ([3, 13, 43], "x")
 
 ### --- D = 3x4  --- ###
 code = ToricCode(3, 4)
-error, error_type = ([4, 6], "x")
+error, error_type = ([10, 16, 19], "z")
 ### -------------- ###
 
 # extract the syndrome
@@ -25,7 +25,8 @@ clusters, count = syndrome_validation_naive(syndrome, code, syndrome_type)
 spanning_trees = generate_spanning_trees(
     clusters, code, syndrome, syndrome_type
 )
-corrections = tree_peeler(spanning_trees, syndrome)
+print(f"Syndrome: {syndrome}")
+corrections = peel_spanning_trees(spanning_trees, syndrome)
 total_correction = sum(corrections.values(), [])
 overall_result = error_bin ^ convert_qubit_list_to_binary(total_correction)
 
@@ -34,21 +35,21 @@ print(code.get_parity_checks(parity_check_type="x"))
 # print the code with error + syndrome
 print("BEFORE UNION-FIND DECODING")
 code.draw(
-    x_data_string=error_bin,
-    restrict_graph="z"
-    # z_data_string=error_bin,
-    # restrict_graph="x"
+    # x_data_string=error_bin,
+    # restrict_graph="z"
+    z_data_string=error_bin,
+    restrict_graph="x"
 )
 
 # print the code with applied correction + syndrome
 print("AFTER UNION-FIND DECODING")
 code.draw(
-    x_data_string=overall_result,
-    z_syndrome_string=syndrome,
-    restrict_graph="z"
-    # z_data_string=overall_result,
-    # x_syndrome_string=syndrome,
-    # restrict_graph="x"
+    # x_data_string=overall_result,
+    # z_syndrome_string=syndrome,
+    # restrict_graph="z"
+    z_data_string=overall_result,
+    x_syndrome_string=syndrome,
+    restrict_graph="x"
 )
 
 print()
